@@ -282,6 +282,17 @@ describe.each([
   });
 });
 
+describe('generated install scripts and the heredoc stripper', () => {
+  it.each([
+    ['discourse', DISCOURSE_FORUM],
+    ['flarum', FLARUM_FORUM],
+  ] as const)('%s inner script uses no <<- heredoc and strips cleanly', (_engine, forum) => {
+    const inner = composeInnerScript(composeInput(forum));
+    expect(inner).not.toMatch(/(?<!<)<<-/);
+    expect(() => stripInnerScriptComments(inner)).not.toThrow();
+  });
+});
+
 describe('stripInnerScriptComments', () => {
   it('removes top-level comment and blank lines but keeps the shebang', () => {
     const input = [
@@ -328,6 +339,18 @@ describe('stripInnerScriptComments', () => {
     const out = stripInnerScriptComments(input);
     expect(out).toContain('# kept inside heredoc');
     expect(out).not.toContain('# dropped');
+  });
+
+  it('throws on the <<- tab-stripping heredoc form instead of corrupting the payload', () => {
+    const input = ['cat >f <<-EOF', '\t# body', '\tEOF', 'echo done'].join('\n');
+    expect(() => stripInnerScriptComments(input)).toThrow(/<<-/);
+  });
+
+  it('does not treat a here-string (<<<) as a heredoc opener', () => {
+    const input = ['grep -q x <<<EOF', '# a real top-level comment', 'echo done'].join('\n');
+    const out = stripInnerScriptComments(input);
+    // The comment after the here-string is still stripped: no heredoc was opened.
+    expect(out).toBe(['grep -q x <<<EOF', 'echo done'].join('\n'));
   });
 
   it('tracks multiple heredocs independently', () => {

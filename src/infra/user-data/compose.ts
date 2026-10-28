@@ -144,7 +144,9 @@ export function composeInnerScript(input: ComposeUserDataInput): string {
  * are preserved verbatim, so `#`-prefixed content in those languages is never
  * corrupted. Heredocs are tracked by their opener `<<DELIM` / `<<'DELIM'` and the
  * matching closing line `^DELIM$`; the generated scripts use only this simple
- * form (no `<<-` tab-stripping, no inline arguments after the delimiter).
+ * form. A `<<-` opener throws (it cannot be tracked by this scanner) instead of
+ * silently corrupting the payload; here-strings (`<<<`) are not heredocs and
+ * are ignored.
  *
  * @param script - The composed inner install script.
  * @returns The script with top-level comments and blank lines removed.
@@ -155,7 +157,9 @@ export function stripInnerScriptComments(script: string): string {
   let heredocDelimiter: string | undefined;
   // Matches a heredoc opener and captures the delimiter word, with or without
   // surrounding single or double quotes: `<<EOF`, `<<'EOF'`, `<<"EOF"`.
-  const openerRe = /<<\s*(["']?)([A-Za-z_][A-Za-z0-9_]*)\1/;
+  // `(?<!<)` excludes here-strings (`<<<word`), which are not heredocs. The
+  // optional `-` is captured so the `<<-` (tab-stripping) form can be rejected.
+  const openerRe = /(?<!<)<<(-?)\s*(["']?)([A-Za-z_][A-Za-z0-9_]*)\2/;
 
   for (const line of lines) {
     if (heredocDelimiter !== undefined) {
@@ -178,7 +182,17 @@ export function stripInnerScriptComments(script: string): string {
     // If this line opens a heredoc, enter heredoc mode until its delimiter.
     const match = openerRe.exec(line);
     if (match) {
-      heredocDelimiter = match[2];
+      if (match[1] === '-') {
+        // `<<-` strips leading tabs from the body AND the closing delimiter, so
+        // the plain `line === delimiter` close detection below would never see
+        // the end of the heredoc and would pass the rest of the script through
+        // as "body". Fail synth rather than silently emit a mangled payload.
+        throw new Error(
+          'stripInnerScriptComments: the <<- (tab-stripping) heredoc form is not supported; ' +
+            `use a plain <<DELIM heredoc (line: ${line.trim().slice(0, 80)})`,
+        );
+      }
+      heredocDelimiter = match[3];
     }
   }
 
