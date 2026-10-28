@@ -10,7 +10,8 @@
     "shellcheck@0.10.0",
     "shfmt@3.11.0",
     "gitleaks@8.24.3",
-    "lefthook@1.11.14"
+    "lefthook@1.11.14",
+    "gh@2.103.2"
   ],
   "shell": {
     "init_hook": [
