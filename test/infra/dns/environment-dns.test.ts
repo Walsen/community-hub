@@ -191,11 +191,14 @@ const ASSET_HASH = /^[0-9a-f]{64}$/;
 const ASSET_HASH_GLOBAL = /[0-9a-f]{64}/g;
 
 /**
- * Does a resource at `path` sit directly under the `AWS::Lightsail::Instance`
- * resource's `Properties`? The template shape is
- * `Resources.<logicalId>.Properties.UserData`, so the `UserData` key is three
- * levels below `Resources`. Matching on the path (rather than any `UserData`
- * key) keeps the normalization scoped to the Lightsail instance user data.
+ * Is `path` exactly a resource's `Properties.UserData` VALUE node? The shape is
+ * `Resources.<logicalId>.Properties.UserData`. The value is not a bare string —
+ * CloudFormation wraps it (e.g. `{ "Fn::Base64": "<gzip+base64>" }` or an
+ * `Fn::Join`) — so {@link normalizeNode} short-circuits the WHOLE value to a
+ * placeholder here rather than trying to reach the leaf string. (An earlier
+ * version only replaced a bare-string UserData, which never occurs, so the raw
+ * gzip base64 leaked into the snapshot and made it depend on the payload / CDK
+ * token ids — environment-fragile.)
  */
 function isLightsailUserData(path: readonly string[]): boolean {
   return (
@@ -313,10 +316,13 @@ function normalizeNode(
   path: readonly string[],
   placeholders: ReadonlyMap<string, string>,
 ): unknown {
+  // Replace the ENTIRE UserData value (string or Fn::Base64/Fn::Join wrapper)
+  // with a stable placeholder: its gzip+base64 payload varies with CDK token
+  // ids and script bytes and is asserted by the user-data tests, not here.
+  if (isLightsailUserData(path)) {
+    return USER_DATA_PLACEHOLDER;
+  }
   if (typeof node === 'string') {
-    if (isLightsailUserData(path)) {
-      return USER_DATA_PLACEHOLDER;
-    }
     const key = path[path.length - 1];
     if (key === 'Analytics' && path[path.length - 2] === 'CDKMetadata') {
       return '<<ANALYTICS>>';

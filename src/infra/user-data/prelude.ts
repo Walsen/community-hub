@@ -271,10 +271,9 @@ claim_and_register() {
   done
 
   # Parse into locals. activation_code holds a secret; keep it off argv and logs.
-  local activation_id activation_code observed_ip region
+  local activation_id activation_code region
   activation_id="$(printf '%s' "\$body" | jq -r '.activationId')"
   activation_code="$(printf '%s' "\$body" | jq -r '.activationCode')"
-  observed_ip="$(printf '%s' "\$body" | jq -r '.observedIp // empty')"
   region="$(printf '%s' "\$body" | jq -r '.region // empty')"
   body=''
   if [ -z "\$region" ]; then region="\$CH_REGION"; fi
@@ -295,10 +294,6 @@ claim_and_register() {
   unset activation_code
   if [ "\$rc" -ne 0 ]; then
     fail "SSM managed-node registration failed (code redacted)"
-  fi
-
-  if [ -n "\$observed_ip" ]; then
-    printf '%s\\n' "\$observed_ip" >'${PUBLIC_IP_FILE}'
   fi
 
   # Restart (not just start) the agent so it re-reads the on-prem registration we
@@ -391,14 +386,38 @@ write_secret() {
 }
 
 # ---- wait_for_dns ---------------------------------------------------
-# Poll until CH_HOST resolves to this instance's saved public IP. 120 min limit,
-# then fail. Only the HTTP-01 path calls this; DNS-01 issuance does not wait for
-# the A record.
+# Resolve THIS instance's public IPv4 and cache it in the public-ip file. The
+# instance derives its own address from the instance metadata service (IMDSv2,
+# token-first with a v1 fallback) rather than depending on any external input:
+# the bootstrap broker intentionally does not report a source IP (Lightsail NATs
+# outbound traffic away from the attached static IP), so there is nothing else
+# to learn it from. Idempotent: writes the file once, reuses it thereafter.
+resolve_public_ip() {
+  if [ -s '${PUBLIC_IP_FILE}' ]; then
+    return 0
+  fi
+  local ip token
+  token="$(curl -fsS --max-time 5 -X PUT 'http://169.254.169.254/latest/api/token' \\
+    -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' 2>/dev/null || true)"
+  if [ -n "\$token" ]; then
+    ip="$(curl -fsS --max-time 5 -H "X-aws-ec2-metadata-token: \$token" \\
+      'http://169.254.169.254/latest/meta-data/public-ipv4' 2>/dev/null || true)"
+  fi
+  if [ -z "\${ip:-}" ]; then
+    ip="$(curl -fsS --max-time 5 'http://169.254.169.254/latest/meta-data/public-ipv4' 2>/dev/null || true)"
+  fi
+  if [ -z "\${ip:-}" ]; then
+    fail "could not determine this instance's public IP from instance metadata"
+  fi
+  printf '%s\\n' "\$ip" >'${PUBLIC_IP_FILE}'
+}
+
+# Poll until CH_HOST resolves to this instance's public IP. 120 min limit, then
+# fail. Only the HTTP-01 path calls this; DNS-01 issuance does not wait for the
+# A record.
 wait_for_dns() {
   local expected_ip deadline resolved
-  if [ ! -f '${PUBLIC_IP_FILE}' ]; then
-    fail "public IP is unknown; cannot verify DNS for \$CH_HOST"
-  fi
+  resolve_public_ip
   expected_ip="$(cat '${PUBLIC_IP_FILE}')"
   deadline=\$(( \$(date +%s) + 7200 ))   # 120 minutes
   while :; do

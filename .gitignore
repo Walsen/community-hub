@@ -11,3 +11,6 @@ cdk.out
 *.pem
 *.key
 sshkey.pem
+
+# Code review artifacts (not committed)
+semantic-review/

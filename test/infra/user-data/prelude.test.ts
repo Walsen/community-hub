@@ -55,6 +55,28 @@ describe('renderPrelude', () => {
     expect(script).toContain('wait_for_dns() {');
   });
 
+  it('resolves its own public IP from instance metadata, not from the broker', () => {
+    // The HTTP-01 TLS path calls wait_for_dns, which needs this instance's
+    // public IP. The broker intentionally does NOT report a source IP (Lightsail
+    // NATs outbound away from the static IP), so the instance must derive its
+    // own address from IMDS. Regression for a gap where the public-ip file was
+    // only written from a broker `observedIp` field the broker never sends.
+    expect(script).toContain('resolve_public_ip() {');
+    // IMDSv2 token-first, with the metadata public-ipv4 lookup.
+    expect(script).toContain('http://169.254.169.254/latest/api/token');
+    expect(script).toContain('http://169.254.169.254/latest/meta-data/public-ipv4');
+    // wait_for_dns must call resolve_public_ip before reading the IP file.
+    const resolveIdx = script.indexOf('resolve_public_ip() {');
+    const waitIdx = script.indexOf('wait_for_dns() {');
+    const callIdx = script.indexOf('resolve_public_ip', waitIdx);
+    expect(resolveIdx).toBeGreaterThanOrEqual(0);
+    expect(waitIdx).toBeGreaterThan(resolveIdx);
+    expect(callIdx).toBeGreaterThan(waitIdx);
+    // The dead broker-sourced public-IP write is gone.
+    expect(script).not.toContain('observedIp');
+    expect(script).not.toContain('observed_ip');
+  });
+
   it('claims the activation over IPv4 so the broker source-IP check matches', () => {
     // The broker authorizes a claim by matching the request source IP to the
     // forum's Lightsail static IP, which is IPv4-only. Lightsail instances are
