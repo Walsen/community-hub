@@ -500,7 +500,7 @@ exports[`EnvironmentStack DNS per mode > external > matches the template snapsho
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET2.zip",
+          "S3Key": "ASSET4.zip",
         },
         "Handler": "index.isComplete",
         "Role": {
@@ -646,7 +646,7 @@ exports[`EnvironmentStack DNS per mode > external > matches the template snapsho
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET2.zip",
+          "S3Key": "ASSET4.zip",
         },
         "Handler": "index.onEvent",
         "Role": {
@@ -792,7 +792,7 @@ exports[`EnvironmentStack DNS per mode > external > matches the template snapsho
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - isComplete (TestStack/EmailRefreshProvider)",
         "Environment": {
@@ -966,7 +966,7 @@ exports[`EnvironmentStack DNS per mode > external > matches the template snapsho
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (TestStack/EmailRefreshProvider)",
         "Environment": {
@@ -1150,7 +1150,7 @@ exports[`EnvironmentStack DNS per mode > external > matches the template snapsho
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onTimeout (TestStack/EmailRefreshProvider)",
         "Environment": {
@@ -2592,7 +2592,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET3.zip",
+          "S3Key": "ASSET1.zip",
         },
         "Handler": "index.isComplete",
         "Role": {
@@ -2686,7 +2686,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET3.zip",
+          "S3Key": "ASSET1.zip",
         },
         "Handler": "index.onEvent",
         "Role": {
@@ -2780,7 +2780,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - isComplete (TestStack/LifecycleProvider)",
         "Environment": {
@@ -2954,7 +2954,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (TestStack/LifecycleProvider)",
         "Environment": {
@@ -3138,7 +3138,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onTimeout (TestStack/LifecycleProvider)",
         "Environment": {
@@ -3446,7 +3446,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET1.zip",
+          "S3Key": "ASSET3.zip",
         },
         "Handler": "index.onEvent",
         "Role": {
@@ -3569,7 +3569,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (TestStack/SesCredentialsProvider)",
         "Environment": {
@@ -4264,7 +4264,7 @@ exports[`EnvironmentStack DNS per mode > route53 > matches the template snapshot
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET2.zip",
+          "S3Key": "ASSET4.zip",
         },
         "Handler": "index.isComplete",
         "Role": {
@@ -4410,7 +4410,7 @@ exports[`EnvironmentStack DNS per mode > route53 > matches the template snapshot
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET2.zip",
+          "S3Key": "ASSET4.zip",
         },
         "Handler": "index.onEvent",
         "Role": {
@@ -4556,7 +4556,7 @@ exports[`EnvironmentStack DNS per mode > route53 > matches the template snapshot
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - isComplete (TestStack/EmailRefreshProvider)",
         "Environment": {
@@ -4730,7 +4730,7 @@ exports[`EnvironmentStack DNS per mode > route53 > matches the template snapshot
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (TestStack/EmailRefreshProvider)",
         "Environment": {
@@ -4914,7 +4914,7 @@ exports[`EnvironmentStack DNS per mode > route53 > matches the template snapshot
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onTimeout (TestStack/EmailRefreshProvider)",
         "Environment": {
@@ -6557,7 +6557,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET3.zip",
+          "S3Key": "ASSET1.zip",
         },
         "Handler": "index.isComplete",
         "Role": {
@@ -6651,7 +6651,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET3.zip",
+          "S3Key": "ASSET1.zip",
         },
         "Handler": "index.onEvent",
         "Role": {
@@ -6745,7 +6745,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - isComplete (TestStack/LifecycleProvider)",
         "Environment": {
@@ -6919,7 +6919,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (TestStack/LifecycleProvider)",
         "Environment": {
@@ -7103,7 +7103,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onTimeout (TestStack/LifecycleProvider)",
         "Environment": {
@@ -7411,7 +7411,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET1.zip",
+          "S3Key": "ASSET3.zip",
         },
         "Handler": "index.onEvent",
         "Role": {
@@ -7534,7 +7534,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (TestStack/SesCredentialsProvider)",
         "Environment": {
@@ -8188,7 +8188,7 @@ exports[`EnvironmentStack DNS per mode > route53-existing > matches the template
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET2.zip",
+          "S3Key": "ASSET4.zip",
         },
         "Handler": "index.isComplete",
         "Role": {
@@ -8334,7 +8334,7 @@ exports[`EnvironmentStack DNS per mode > route53-existing > matches the template
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET2.zip",
+          "S3Key": "ASSET4.zip",
         },
         "Handler": "index.onEvent",
         "Role": {
@@ -8480,7 +8480,7 @@ exports[`EnvironmentStack DNS per mode > route53-existing > matches the template
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - isComplete (TestStack/EmailRefreshProvider)",
         "Environment": {
@@ -8654,7 +8654,7 @@ exports[`EnvironmentStack DNS per mode > route53-existing > matches the template
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (TestStack/EmailRefreshProvider)",
         "Environment": {
@@ -8838,7 +8838,7 @@ exports[`EnvironmentStack DNS per mode > route53-existing > matches the template
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onTimeout (TestStack/EmailRefreshProvider)",
         "Environment": {
@@ -10457,7 +10457,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET3.zip",
+          "S3Key": "ASSET1.zip",
         },
         "Handler": "index.isComplete",
         "Role": {
@@ -10551,7 +10551,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET3.zip",
+          "S3Key": "ASSET1.zip",
         },
         "Handler": "index.onEvent",
         "Role": {
@@ -10645,7 +10645,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - isComplete (TestStack/LifecycleProvider)",
         "Environment": {
@@ -10819,7 +10819,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (TestStack/LifecycleProvider)",
         "Environment": {
@@ -11003,7 +11003,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onTimeout (TestStack/LifecycleProvider)",
         "Environment": {
@@ -11311,7 +11311,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET1.zip",
+          "S3Key": "ASSET3.zip",
         },
         "Handler": "index.onEvent",
         "Role": {
@@ -11434,7 +11434,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
       "Properties": {
         "Code": {
           "S3Bucket": "cdk-hnb659fds-assets-123456789012-us-east-1",
-          "S3Key": "ASSET4.zip",
+          "S3Key": "ASSET2.zip",
         },
         "Description": "AWS CDK resource provider framework - onEvent (TestStack/SesCredentialsProvider)",
         "Environment": {

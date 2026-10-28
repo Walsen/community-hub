@@ -242,35 +242,52 @@ function isLightsailUserData(path: readonly string[]): boolean {
 function normalizeTemplate(template: Template): unknown {
   const json: unknown = template.toJSON();
 
-  // First pass: collect every distinct asset hash so placeholders can be
-  // assigned over the sorted set, making numbering independent of emit order.
-  const hashSet = new Set<string>();
-  collectHashes(json, hashSet);
+  // First pass: collect every distinct asset hash in a STABLE first-seen order
+  // and number the placeholders over that order. The template STRUCTURE (logical
+  // ids, key ordering) is identical across machines; only the hash VALUES differ
+  // (different esbuild/Node produces different bundle bytes). Sorting the hashes
+  // lexically made the ASSET<n> numbering depend on those volatile values, so
+  // the same Lambda got a different number in CI vs. locally and the snapshot
+  // failed in CI only. First-seen order over the deterministic walk is stable
+  // regardless of the hash bytes.
+  const hashOrder: string[] = [];
+  const seen = new Set<string>();
+  collectHashes(json, hashOrder, seen);
   const placeholders = new Map<string, string>();
-  [...hashSet].sort().forEach((hash, index) => {
+  hashOrder.forEach((hash, index) => {
     placeholders.set(hash, `ASSET${String(index)}`);
   });
 
   return normalizeNode(json, [], placeholders);
 }
 
-/** Walk the tree recording every 64-hex asset hash found in any string. */
-function collectHashes(node: unknown, into: Set<string>): void {
+/**
+ * Walk the tree in a deterministic order recording every 64-hex asset hash the
+ * first time it is seen. `order` preserves first-seen order (for stable
+ * placeholder numbering); `seen` de-duplicates. The walk order (string, then
+ * array items, then object values in insertion order) is identical across
+ * machines because the template structure is, so the numbering is stable even
+ * though the hash values are not.
+ */
+function collectHashes(node: unknown, order: string[], seen: Set<string>): void {
   if (typeof node === 'string') {
     for (const match of node.matchAll(ASSET_HASH_GLOBAL)) {
-      into.add(match[0]);
+      if (!seen.has(match[0])) {
+        seen.add(match[0]);
+        order.push(match[0]);
+      }
     }
     return;
   }
   if (Array.isArray(node)) {
     for (const item of node) {
-      collectHashes(item, into);
+      collectHashes(item, order, seen);
     }
     return;
   }
   if (node !== null && typeof node === 'object') {
     for (const value of Object.values(node)) {
-      collectHashes(value, into);
+      collectHashes(value, order, seen);
     }
   }
 }
