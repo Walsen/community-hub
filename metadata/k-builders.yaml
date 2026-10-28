@@ -1,0 +1,26 @@
+version: 1
+
+environment:
+  name: k-builders
+  region: us-east-1
+  availabilityZone: us-east-1a
+  dnsMode: route53-existing
+  hostedZoneId: Z0312538QMXTZXKV0SGK
+  rootDomain: k-builders.net
+  adminEmail: srinclan@arcamo.org
+  sshAllowedCidrs: []
+  # mailDomain defaults to rootDomain (k-builders.net); MAIL FROM becomes mail.k-builders.net
+  # dmarcPolicy defaults to none; acmeStaging defaults to false (production Let's Encrypt)
+
+forums:
+  - id: hub
+    engine: discourse
+    subdomain: hub
+    bundleId: medium_3_0
+    senderAddress: noreply
+    secrets:
+      adminPassword: ssm:/community-hub/k-builders/hub/admin-password
+      apiKey: ssm:/community-hub/k-builders/hub/api-key
+    config:
+      settings:
+        title: 'K Builders Community'

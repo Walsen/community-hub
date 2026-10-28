@@ -1,0 +1,24 @@
+version: 1
+# A minimal, valid metadata file whose single forum uses a real engine
+# (`discourse`) so it loads against the default registry that `bin/seed.ts`
+# builds with `createDefaultRegistry()`. Used by the entry-point exit-code tests
+# for the offline-reachable paths (unknown `--forum`). Secret-bearing fields use
+# only Secret_References, never values.
+environment:
+  name: community-test
+  region: us-east-1
+  availabilityZone: us-east-1a
+  dnsMode: route53
+  rootDomain: example.org
+  adminEmail: ops@example.org
+  sshAllowedCidrs:
+    - 203.0.113.0/24
+forums:
+  - id: main
+    engine: discourse
+    subdomain: forum
+    bundleId: small_3_0
+    senderAddress: noreply
+    secrets:
+      adminPassword: ssm:/community-hub/community-test/main/admin-password
+      apiKey: ssm:/community-hub/community-test/main/api-key

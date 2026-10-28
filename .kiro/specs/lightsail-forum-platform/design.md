@@ -154,9 +154,9 @@ Lightsail instances cannot assume IAM instance profiles. Each forum must, at fir
 | Criterion | A. Per-forum IAM user + access key | B. SSM hybrid activation, code in user data | C. SSM hybrid activation, code claimed from IP-bound broker (**chosen**) |
 |---|---|---|---|
 | Credential lifetime | Long-lived static keys; manual rotation | Code single-use, short expiry; node creds auto-rotated by SSM agent | Same as B |
-| Delivery path | Secret key must reach instance: via `CfnAccessKey` GetAtt into user data (resolved value lands in user data and stack events) or a vending service | Code via GetAtt into user data; visible in resolved user data and CloudFormation events | Code generated at claim time, returned once over TLS to the caller whose source IP equals the forum's static IP. Never at rest. |
+| Delivery path | Secret key must reach instance: via `CfnAccessKey` GetAtt into user data (resolved value lands in user data and stack events) or a vending service | Code via GetAtt into user data; visible in resolved user data and CloudFormation events | Code generated at claim time, returned once over TLS to a caller the broker authorizes by verifying the forum's own Lightsail instance exists and is running in this account (ownership), plus single-registration-per-forum and a 1-hour expiry. Never at rest. |
 | Req 2.5 / steering "user data only holds Secret_References" | Violated unless a vending service is added | Violated | Satisfied: user data holds only the broker URL and forum id |
-| Blast radius if leaked | Usable from anywhere until revoked (mitigable with `aws:SourceIp`) | Anyone with the code before first registration can register a node with the forum role | Code is only issued to the forum's static IP; one registration per forum |
+| Blast radius if leaked | Usable from anywhere until revoked (mitigable with `aws:SourceIp`) | Anyone with the code before first registration can register a node with the forum role | Code is issued only while the forum's instance is running and only once per forum (single registration, 1-hour expiry); a leaked code is unusable once the real node has registered |
 | Extra capabilities | None | Session Manager, Run Command, inventory | Same as B; also lets operators re-run the install script remotely and skip SSH entirely |
 | Cost / complexity | IAM user per forum, key rotation runbook | Custom resource for `CreateActivation` (no CFN resource exists) | One small Lambda per Environment plus function URL |
 
@@ -168,18 +168,18 @@ IAM Roles Anywhere was also considered and rejected: it needs a CA and a private
 
 One `BootstrapBroker` construct per Environment:
 
-- Lambda (`nodejs22.x`) with a function URL, `authType: NONE`. **Security note:** the endpoint is unauthenticated at the HTTP layer. Authorization is the TCP source IP (`requestContext.http.sourceIp`) matching the forum's Lightsail static IP, which belongs to this account and cannot be spoofed across a completed TLS handshake. Additional controls: Zod-validated body, generic `403/404/409` responses that do not reveal which check failed, single active registration per forum, 1-hour activation expiry, activation code never logged (redactor registers it before any log call).
-- Configuration via environment variable `FORUMS` (JSON, non-secret): `{ [forumId]: { expectedIp, roleName, defaultInstanceName } }`, where `expectedIp` is `staticIp.attrIpAddress`. The 4 KB Lambda environment limit allows roughly 25 forums per Environment; the CDK_App fails synthesis with a clear error beyond that.
-- IAM: `ssm:CreateActivation`, `ssm:DeleteActivation`, `ssm:DescribeActivations`, `ssm:DescribeInstanceInformation`, `ssm:AddTagsToResource`, and `iam:PassRole` on the Environment's node role ARNs with condition `iam:PassedToService = ssm.amazonaws.com`.
+- Lambda (`nodejs22.x`) with a function URL, `authType: NONE`. **Security note:** the endpoint is unauthenticated at the HTTP layer. Authorization is **account ownership of the claimed forum's Lightsail instance**: the broker verifies via `GetInstance` that the forum's instance exists and is in the `running` state in this account before issuing an activation. (An earlier design bound authorization to `requestContext.http.sourceIp == staticIp`; this is unsound on Lightsail because an instance's **outbound** traffic is NAT'd through a Lightsail-managed address that is not its attached static IP, so the source IP of the claim never equals the static IP. The ownership check replaces it.) The primary anti-replay controls are **single active registration per forum** and the **1-hour activation expiry**: once the real node registers, any further claim returns 409, and an unclaimed code expires in an hour. Additional controls: Zod-validated body, generic `403/404/409` responses that do not reveal which check failed, activation code never logged (redactor registers it before any log call).
+- Configuration via environment variable `FORUMS` (JSON, non-secret): `{ [forumId]: { staticIpName, roleName, defaultInstanceName } }`, where `staticIpName` and the instance name are deterministic resource names (never a resolved address or a CDK token). The 4 KB Lambda environment limit allows roughly 25 forums per Environment; the CDK_App fails synthesis with a clear error beyond that.
+- IAM: `ssm:CreateActivation`, `ssm:DeleteActivation`, `ssm:DescribeActivations`, `ssm:DescribeInstanceInformation`, `ssm:AddTagsToResource`, and `iam:PassRole` on the Environment's node role ARNs (built deterministically from the stack account/partition, not a GetAtt, to avoid a broker↔instance dependency cycle) with condition `iam:PassedToService = ssm.amazonaws.com`. Plus `lightsail:GetInstance` on `Resource: "*"` for the ownership check — per the Lightsail Service Authorization Reference `GetInstance` and `GetStaticIp` are Read actions that support no resource type, so `*` is the tightest grant IAM permits.
 
 Claim algorithm (`POST {brokerUrl}` with body `{ "environment": "<env>", "forumId": "<id>" }`):
 
 1. Parse body; look up forum in `FORUMS`. Unknown → 404.
-2. If `sourceIp !== expectedIp` → 403.
+2. `GetInstance(<env>-<forumId> instance name)`; if the instance does not exist or is not in the `running` state → 403 (ownership/readiness check — replaces the former source-IP equality check, which is unsound on Lightsail).
 3. `DescribeActivations(DefaultInstanceName = <env>-<forumId>)` → activation ids. `DescribeInstanceInformation(ActivationIds)`; if any node is registered → 409 (single registration per forum).
 4. Delete any prior unused activations for this forum.
 5. `CreateActivation({ IamRole: roleName, RegistrationLimit: 1, ExpirationDate: now + 1h, DefaultInstanceName, Tags: [community-hub:environment, community-hub:forum] })`.
-6. Return `200 { activationId, activationCode, region, observedIp: sourceIp }`.
+6. Return `200 { activationId, activationCode, region }` (no `observedIp`: the claim source IP is a NAT address and carries no authorization meaning).
 
 ```mermaid
 sequenceDiagram
@@ -192,7 +192,8 @@ sequenceDiagram
   CFN->>I: attach static IP (when running)
   loop every 15s, up to 30 min
     I->>B: POST claim {env, forumId}
-    B-->>I: 403 until static IP attached / 200 {activationId, code, region, observedIp}
+    B->>SSM: GetInstance ownership/running check
+    B-->>I: 403 until instance running / 409 if already registered / 200 {activationId, code, region}
   end
   B->>SSM: CreateActivation(role, limit 1, 1h)
   I->>SSM: amazon-ssm-agent -register (code, id, region)
@@ -211,7 +212,7 @@ Built by pure `buildNodePolicy(env, forum, account, region, partition)` in `node
 - Read: `ssm:GetParameter`, `ssm:GetParameters` on `arn:…:parameter/community-hub/<env>/<forumId>/*`; `secretsmanager:GetSecretValue` on `arn:…:secret:/community-hub/<env>/<forumId>/*`. This already covers the Platform-managed `ses-smtp-password` (SecureString) and `ses-smtp-username` (String) parameters, so SES needs no extra node permission. The instance never holds SES IAM credentials; it authenticates to SES with SMTP credentials only.
 - Write: `ssm:PutParameter` on exactly the `apiKey` parameter ARN, or `secretsmanager:PutSecretValue` on exactly the `apiKey` secret (`<name>-??????`).
 - Route 53 (DNS-01 forums only, from `buildAcmeDnsStatements()`; see [Node role Route 53 statements](#node-role-route-53-statements)): change only the forum's own `_acme-challenge` TXT record in the Environment's Hosted_Zone. HTTP-01 forums get no Route 53 statement.
-- Defense in depth: every read/write statement (including Route 53) carries `aws:SourceIp = <static IP>/32`; an explicit `Deny` on `ssm:GetParameter*` and `secretsmanager:GetSecretValue` with `NotResource` = the forum prefix.
+- Defense in depth: an explicit `Deny` on `ssm:GetParameter*` and `secretsmanager:GetSecretValue` with `NotResource` = the forum prefix. (An earlier design also pinned every statement with `aws:SourceIp = <static IP>/32`; this is removed because a Lightsail instance's outbound traffic egresses from a NAT address that is not its static IP, so such a condition would deny every legitimate call. Least privilege is carried entirely by exact resource ARNs scoped to the forum's `/community-hub/<env>/<forumId>/` prefix and the forum's own `_acme-challenge` record.)
 - KMS: AWS managed keys (`aws/ssm`, `aws/secretsmanager`) are assumed; their key policies authorize use through the service, so no `kms:*` statement is needed. Customer managed keys are out of scope.
 
 The loader enforces that every forum-level Secret_Reference id starts with `/community-hub/<env>/<forumId>/` (both stores; for Secrets Manager ARNs the name segment is checked). This is what makes path-prefix IAM scoping sufficient for Req 2.6. The names `ses-smtp-password` and `ses-smtp-username` under that prefix are reserved for the Platform; a declared reference that uses them is rejected so the credentials custom resource never overwrites an operator secret.
@@ -564,16 +565,13 @@ The rendered bash, placed after the prelude and before the adapter script, does 
       "Null": {
         "route53:ChangeResourceRecordSetsNormalizedRecordNames": "false",
         "route53:ChangeResourceRecordSetsRecordTypes": "false",
-        "route53:ChangeResourceRecordSetsActions": "false" },
-      "IpAddress": { "aws:SourceIp": "<static IP>/32" } } },
+        "route53:ChangeResourceRecordSetsActions": "false" } } },
   { "Sid": "AcmeDns01ReadZone", "Effect": "Allow",
     "Action": "route53:ListResourceRecordSets",
-    "Resource": "arn:<p>:route53:::hostedzone/<zoneId>",
-    "Condition": { "IpAddress": { "aws:SourceIp": "<static IP>/32" } } },
+    "Resource": "arn:<p>:route53:::hostedzone/<zoneId>" },
   { "Sid": "AcmeDns01GetChange", "Effect": "Allow",
     "Action": "route53:GetChange",
-    "Resource": "arn:<p>:route53:::change/*",
-    "Condition": { "IpAddress": { "aws:SourceIp": "<static IP>/32" } } }
+    "Resource": "arn:<p>:route53:::change/*" }
 ]
 ```
 
@@ -1488,7 +1486,7 @@ For any registered adapter (including the fake `testengine`), any valid environm
 ### Property 33: DNS-01 Route 53 permissions cover only the forum's own challenge record
 
 For any valid model in a Route53_Mode with forums F1..Fn whose challenge is `dns-01`, the node policy of each Fi:
-- allows `route53:ChangeResourceRecordSets` only on `arn:<p>:route53:::hostedzone/<zoneId>`, with `ForAllValues:StringEquals` conditions equal to `[_acme-challenge.<hostname_i>]` for normalized record names, `[TXT]` for record types and a subset of `[UPSERT, DELETE]` for actions, each guarded by a `Null: false` condition, plus `aws:SourceIp = <static IP_i>/32`;
+- allows `route53:ChangeResourceRecordSets` only on `arn:<p>:route53:::hostedzone/<zoneId>`, with `ForAllValues:StringEquals` conditions equal to `[_acme-challenge.<hostname_i>]` for normalized record names, `[TXT]` for record types and a subset of `[UPSERT, DELETE]` for actions, each guarded by a `Null: false` condition;
 - has no other Route 53 actions than `route53:ListResourceRecordSets` on the same zone ARN and `route53:GetChange` on `change/*`; in particular no `route53:ListHostedZones` or `route53:ListHostedZonesByName`, and no Route 53 action on `"*"`;
 - has user data that sets `CH_HOSTED_ZONE_ID` to the zone id.
 For every j ≠ i, no statement of Fi's policy permits a change to `_acme-challenge.<hostname_j>`.
@@ -1598,7 +1596,7 @@ Covers:
 1. **Steering note.** The SES SMTP parameters are written by an Environment-level deploy-time Lambda scoped to `/community-hub/<env>/*/ses-smtp-*`, not by the instance, so the node role keeps a single Secret_Store write (the API key).
 2. **SES operator responsibilities.** New accounts start in the SES sandbox per region, so mail reaches only verified identities until production access is granted. SES must be offered in the Environment region (the deploy fails otherwise). The SNS email subscription stays `PendingConfirmation` until the admin clicks the link, and until then bounce and complaint notices are dropped.
 3. **Items to verify in the first integration run:**
-   - outbound traffic from a Lightsail instance uses its attached static IP (broker binding and the Route 53 `aws:SourceIp` condition depend on it);
+   - a Lightsail instance's **outbound** traffic egresses from a Lightsail-managed NAT address, NOT its attached static IP (verified on a real deploy); therefore the broker authorizes claims by account ownership of the running instance (`GetInstance`) rather than source-IP equality, and the node role carries no `aws:SourceIp` condition;
    - the SSM agent writes hybrid credentials to `/root/.aws/credentials` under the `default` profile, and lego's AWS SDK picks them up through `AWS_SHARED_CREDENTIALS_FILE` / `AWS_PROFILE`;
    - lego route53 provider:
      - with `AWS_HOSTED_ZONE_ID` set it makes no `ListHostedZones*` call (otherwise Req 13.7 must be revisited);

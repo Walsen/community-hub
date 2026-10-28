@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# No AWS credentials are configured in CI and no job deploys. CI only runs the
+# local gate (build, lint, test, shellcheck, secret scan) via `just check`.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Build, lint, test, scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Full history so gitleaks can scan the whole tree.
+          fetch-depth: 0
+
+      - name: Install Devbox
+        uses: jetify-com/devbox-install-action@8c6a66ed6273138b1915457069de78cb52fe3bd7 # v0.15.0
+
+      - name: Install dependencies
+        run: devbox run -- npm ci
+
+      - name: Run checks
+        run: devbox run -- just check
