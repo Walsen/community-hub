@@ -99,6 +99,53 @@ export const UserSchema = z.strictObject({
   password: secretRefSchema.optional(),
 });
 
+/** Interface color mode a theme requests. */
+export const THEME_MODES = ['light', 'dark', 'auto'] as const;
+
+/**
+ * A named color palette. Every slot is a six-hex RGB value without a leading
+ * `#` (same form as a category colour). `primary`, `secondary` and `tertiary`
+ * are required (text, background and accent); the remaining slots map to
+ * Discourse color-scheme slots and are optional. Engines without a color-scheme
+ * entity (Flarum) map what they can and skip the rest.
+ */
+export const PaletteSchema = z.strictObject({
+  name: z.string().min(1).optional(),
+  primary: z.string().regex(COLOR_RE),
+  secondary: z.string().regex(COLOR_RE),
+  tertiary: z.string().regex(COLOR_RE),
+  quaternary: z.string().regex(COLOR_RE).optional(),
+  headerBackground: z.string().regex(COLOR_RE).optional(),
+  headerPrimary: z.string().regex(COLOR_RE).optional(),
+  highlight: z.string().regex(COLOR_RE).optional(),
+  danger: z.string().regex(COLOR_RE).optional(),
+  success: z.string().regex(COLOR_RE).optional(),
+  love: z.string().regex(COLOR_RE).optional(),
+});
+
+/**
+ * Branding strings. These are ordinary site settings on every engine, so the
+ * desired-state builder lowers them into `setting` resources rather than a new
+ * resource type. `logo`/`logoSmall`/`favicon` are public URLs, never secrets.
+ */
+export const BrandingSchema = z.strictObject({
+  title: z.string().min(1).optional(),
+  logo: z.url().optional(),
+  logoSmall: z.url().optional(),
+  favicon: z.url().optional(),
+});
+
+/**
+ * The optional per-forum theme. `palette` becomes a `colorScheme` resource;
+ * `mode` and `branding` are lowered into `setting` resources by the desired
+ * builder so they reconcile through the existing settings path.
+ */
+export const ThemeSchema = z.strictObject({
+  palette: PaletteSchema.optional(),
+  mode: z.enum(THEME_MODES).optional(),
+  branding: BrandingSchema.optional(),
+});
+
 /**
  * The per-forum `config` section the Seeder reconciles. All subsections are
  * optional; an omitted subsection means "nothing declared" (and therefore
@@ -106,6 +153,7 @@ export const UserSchema = z.strictObject({
  */
 export const ForumConfigSchema = z.strictObject({
   settings: z.record(z.string(), z.unknown()).default({}),
+  theme: ThemeSchema.optional(),
   groups: z.array(GroupSchema).default([]),
   categories: z.array(CategorySchema).default([]),
   users: z.array(UserSchema).default([]),

@@ -140,10 +140,11 @@ describe('discourseAdapter static shape', () => {
     expect([...discourseAdapter.requiredSecrets].sort()).toEqual(['adminPassword', 'apiKey']);
   });
 
-  it('supports all six resource types including trustLevel', () => {
+  it('supports all seven resource types including colorScheme and trustLevel', () => {
     const types = discourseAdapter.seed.supportedTypes;
     for (const type of [
       'setting',
+      'colorScheme',
       'group',
       'category',
       'user',
@@ -152,7 +153,7 @@ describe('discourseAdapter static shape', () => {
     ] as const) {
       expect(types.has(type)).toBe(true);
     }
-    expect(types.size).toBe(6);
+    expect(types.size).toBe(7);
   });
 
   it('exposes TLS capability matching the install-script constants', () => {

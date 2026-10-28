@@ -177,6 +177,7 @@ function dependenciesOf(type: ResourceType, naturalKey: string): readonly Resour
     case 'trustLevel':
       return [resourceKey('user', naturalKey)];
     case 'setting':
+    case 'colorScheme':
     case 'group':
     case 'category':
     case 'user':

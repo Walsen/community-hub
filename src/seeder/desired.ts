@@ -40,6 +40,30 @@ export interface DesiredSetting {
   readonly value: unknown;
 }
 
+/**
+ * Normalized declared attributes of a `colorScheme` resource (the theme
+ * palette). Each colour is a normalized six-hex value without `#` (uppercased by
+ * `normalizeColor`). Slots are explicit optional fields rather than a nested map
+ * so the reconciler diffs only the slots that were declared and ignores derived
+ * slots the engine auto-populates (Discourse adds `selected`/`hover`/`love`),
+ * keeping re-application idempotent. `mode` rides along so the engine sets the
+ * default-scheme behaviour where it manages the palette.
+ */
+export interface DesiredColorScheme {
+  readonly name: string;
+  readonly mode?: 'light' | 'dark' | 'auto';
+  readonly color_primary?: string;
+  readonly color_secondary?: string;
+  readonly color_tertiary?: string;
+  readonly color_quaternary?: string;
+  readonly color_header_background?: string;
+  readonly color_header_primary?: string;
+  readonly color_highlight?: string;
+  readonly color_danger?: string;
+  readonly color_success?: string;
+  readonly color_love?: string;
+}
+
 /** Normalized declared attributes of a `group` resource (members excluded). */
 export interface DesiredGroup {
   readonly name: string;
@@ -108,6 +132,50 @@ export function buildDesired(forum: ForumModel): SeedResource[] {
   for (const [key, value] of Object.entries(config.settings)) {
     const desired: DesiredSetting = { value };
     resources.push({ type: 'setting', naturalKey: trimString(key), desired });
+  }
+
+  // Theme: the palette becomes one `colorScheme` resource; branding strings and
+  // the interface mode are lowered into `setting` resources using canonical
+  // (Discourse) setting keys. Engines remap keys in their `transformDesired`.
+  const theme = config.theme;
+  if (theme !== undefined) {
+    if (theme.palette !== undefined) {
+      const p = theme.palette;
+      const name = trimString(p.name ?? 'community-hub');
+      const desired: DesiredColorScheme = {
+        name,
+        ...(theme.mode !== undefined ? { mode: theme.mode } : {}),
+        ...(p.primary !== undefined ? { color_primary: normalizeColor(p.primary) } : {}),
+        ...(p.secondary !== undefined ? { color_secondary: normalizeColor(p.secondary) } : {}),
+        ...(p.tertiary !== undefined ? { color_tertiary: normalizeColor(p.tertiary) } : {}),
+        ...(p.quaternary !== undefined ? { color_quaternary: normalizeColor(p.quaternary) } : {}),
+        ...(p.headerBackground !== undefined
+          ? { color_header_background: normalizeColor(p.headerBackground) }
+          : {}),
+        ...(p.headerPrimary !== undefined
+          ? { color_header_primary: normalizeColor(p.headerPrimary) }
+          : {}),
+        ...(p.highlight !== undefined ? { color_highlight: normalizeColor(p.highlight) } : {}),
+        ...(p.danger !== undefined ? { color_danger: normalizeColor(p.danger) } : {}),
+        ...(p.success !== undefined ? { color_success: normalizeColor(p.success) } : {}),
+        ...(p.love !== undefined ? { color_love: normalizeColor(p.love) } : {}),
+      };
+      resources.push({ type: 'colorScheme', naturalKey: name, desired });
+    }
+
+    const branding = theme.branding;
+    if (branding !== undefined) {
+      const brandingSettings: Array<readonly [string, unknown]> = [];
+      if (branding.title !== undefined) brandingSettings.push(['title', branding.title]);
+      if (branding.logo !== undefined) brandingSettings.push(['logo', branding.logo]);
+      if (branding.logoSmall !== undefined)
+        brandingSettings.push(['logo_small', branding.logoSmall]);
+      if (branding.favicon !== undefined) brandingSettings.push(['favicon', branding.favicon]);
+      for (const [key, value] of brandingSettings) {
+        const desired: DesiredSetting = { value };
+        resources.push({ type: 'setting', naturalKey: key, desired });
+      }
+    }
   }
 
   for (const group of config.groups) {

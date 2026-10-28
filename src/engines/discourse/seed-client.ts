@@ -29,7 +29,7 @@ import type {
   SeedClientDeps,
   SeedHandlers,
 } from '../engine-adapter.js';
-import type { DesiredUser } from '../../seeder/desired.js';
+import type { DesiredColorScheme, DesiredUser } from '../../seeder/desired.js';
 import {
   normalizeColor,
   normalizeEmail,
@@ -113,6 +113,41 @@ const SiteSettingsSchema = z.object({
   ),
 });
 
+/** A single color-scheme entry from `GET /admin/color_schemes.json`. */
+const ColorSchemeEntrySchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  colors: z
+    .array(z.object({ name: z.string(), hex: z.string() }))
+    .optional()
+    .default([]),
+});
+
+/** Narrowing schema for the color-schemes list payload. */
+const ColorSchemesSchema = z.array(ColorSchemeEntrySchema);
+
+/** Narrowing schema for a single color scheme create/show payload. */
+const ColorSchemeShowSchema = z.object({ id: z.number(), name: z.string() });
+
+/** Narrowing schema for the relevant fields of `GET /admin/themes.json`. */
+const ThemesListSchema = z.object({
+  themes: z.array(
+    z.object({
+      id: z.number(),
+      default: z.boolean().nullish(),
+      color_scheme_id: z.number().nullish(),
+      dark_color_scheme_id: z.number().nullish(),
+    }),
+  ),
+});
+
+/** The default theme's current color-scheme assignment, for mode read-back. */
+interface ThemeSchemeAssignment {
+  readonly lightId: number | undefined;
+  readonly darkId: number | undefined;
+  readonly selectorAuto: boolean;
+}
+
 /** Narrowing schema for `GET /groups/{name}.json`. */
 const GroupShowSchema = z.object({
   group: z.object({
@@ -170,6 +205,7 @@ export function createDiscourseSeedClient(deps: SeedClientDeps): SeedClient {
 
   const handlers: SeedHandlers = {
     setting: client.settingHandler(),
+    colorScheme: client.colorSchemeHandler(),
     group: client.groupHandler(),
     category: client.categoryHandler(),
     user: client.userHandler(),
@@ -246,6 +282,180 @@ class DiscourseApi {
     await this.#request('PUT', `/admin/site_settings/${encodeURIComponent(key)}.json`, {
       [key]: encodeDiscourseSettingValue(desired.value),
     });
+  }
+
+  // --- colorScheme --------------------------------------------------------
+
+  /** Color-scheme ids discovered by normalized name during reads. */
+  readonly #colorSchemeIds = new Map<string, number>();
+
+  colorSchemeHandler(): ResourceHandler {
+    return {
+      read: (keys) => this.#readColorSchemes(keys),
+      create: (resource) => this.#createColorScheme(resource),
+      update: (resource) => this.#updateColorScheme(resource),
+    };
+  }
+
+  async #readColorSchemes(
+    keys: readonly string[],
+  ): Promise<ReadonlyMap<string, Readonly<Record<string, unknown>>>> {
+    const wanted = new Map(keys.map((k) => [k.trim().toLowerCase(), k] as const));
+    const response = await this.#request('GET', '/admin/color_schemes.json');
+    const parsed = this.#parse(ColorSchemesSchema, response, 'GET', '/admin/color_schemes.json');
+    // Read the default theme's scheme assignment so `mode` can be read back and
+    // compared; without this the mode would diff on every run (it is not a
+    // property of the color scheme itself).
+    const assignment = await this.#defaultThemeSchemeAssignment();
+    const out = new Map<string, Readonly<Record<string, unknown>>>();
+    for (const scheme of parsed) {
+      const norm = scheme.name.trim().toLowerCase();
+      this.#colorSchemeIds.set(norm, scheme.id);
+      const requestedKey = wanted.get(norm);
+      if (requestedKey !== undefined) {
+        const record: Record<string, unknown> = { name: scheme.name.trim() };
+        for (const c of scheme.colors) {
+          record[`color_${c.name}`] = normalizeColor(c.hex);
+        }
+        const mode = deriveMode(scheme.id, assignment);
+        if (mode !== undefined) {
+          record.mode = mode;
+        }
+        out.set(requestedKey, record);
+      }
+    }
+    return out;
+  }
+
+  /** Read the default theme's light/dark scheme ids and selector state. */
+  async #defaultThemeSchemeAssignment(): Promise<ThemeSchemeAssignment> {
+    const response = await this.#request('GET', '/admin/themes.json');
+    const parsed = this.#parse(ThemesListSchema, response, 'GET', '/admin/themes.json');
+    const def = parsed.themes.find((t) => t.default === true);
+    let selectorAuto = false;
+    try {
+      const settings = await this.#request('GET', '/admin/site_settings.json');
+      const sp = this.#parse(SiteSettingsSchema, settings, 'GET', '/admin/site_settings.json');
+      const sel = sp.site_settings.find((x) => x.setting === 'interface_color_selector');
+      selectorAuto = sel !== undefined && sel.value !== 'disabled' && sel.value !== '';
+    } catch {
+      selectorAuto = false;
+    }
+    return {
+      lightId: def?.color_scheme_id ?? undefined,
+      darkId: def?.dark_color_scheme_id ?? undefined,
+      selectorAuto,
+    };
+  }
+
+  async #createColorScheme(resource: SeedResource): Promise<void> {
+    const desired = resource.desired as DesiredColorScheme;
+    const response = await this.#request('POST', '/admin/color_schemes.json', {
+      color_scheme: {
+        name: desired.name,
+        colors: colorsToDiscourse(desired),
+      },
+    });
+    const created = this.#parse(
+      ColorSchemeShowSchema,
+      response,
+      'POST',
+      '/admin/color_schemes.json',
+    );
+    this.#colorSchemeIds.set(desired.name.trim().toLowerCase(), created.id);
+    await this.#applyColorSchemeMode(desired, created.id);
+  }
+
+  async #updateColorScheme(resource: SeedResource): Promise<void> {
+    const desired = resource.desired as DesiredColorScheme;
+    const id = await this.#requireColorSchemeId(desired.name);
+    await this.#request('PUT', `/admin/color_schemes/${id}.json`, {
+      color_scheme: {
+        name: desired.name,
+        colors: colorsToDiscourse(desired),
+      },
+    });
+    await this.#applyColorSchemeMode(desired, id);
+  }
+
+  /**
+   * Apply the theme `mode` by assigning this scheme to the DEFAULT THEME. Modern
+   * Discourse carries the default light/dark color scheme on the default theme
+   * object (`color_scheme_id` / `dark_color_scheme_id`), not on a site setting
+   * (the old `default_dark_color_scheme_id` setting does not exist on this
+   * version — assuming it did cost a failed apply). `light` sets the theme's
+   * light scheme; `dark` sets its dark scheme; `auto` sets the light scheme and
+   * enables the interface color selector so visitors can follow their OS
+   * preference. Unknown modes are a no-op.
+   */
+  async #applyColorSchemeMode(desired: DesiredColorScheme, id: number): Promise<void> {
+    const mode = desired.mode;
+    if (mode === undefined) {
+      return;
+    }
+    const themeId = await this.#defaultThemeId();
+    if (mode === 'light' || mode === 'auto') {
+      await this.#request('PUT', `/admin/themes/${themeId}.json`, {
+        theme: { color_scheme_id: id },
+      });
+    }
+    if (mode === 'dark') {
+      await this.#request('PUT', `/admin/themes/${themeId}.json`, {
+        theme: { dark_color_scheme_id: id },
+      });
+    }
+    if (mode === 'auto') {
+      // Let each visitor pick / follow their OS light-dark preference.
+      await this.#request(
+        'PUT',
+        '/admin/site_settings/interface_color_selector.json',
+        { interface_color_selector: 'sidebar_footer' },
+        [422],
+      );
+    }
+  }
+
+  /** The id of the site's default theme (the one flagged `default: true`). */
+  async #defaultThemeId(): Promise<number> {
+    const response = await this.#request('GET', '/admin/themes.json');
+    const parsed = this.#parse(ThemesListSchema, response, 'GET', '/admin/themes.json');
+    const def = parsed.themes.find((t) => t.default === true);
+    if (def === undefined) {
+      throw new ForumApiError({
+        forumId: this.#forumId,
+        method: 'GET',
+        path: '/admin/themes.json',
+        status: 0,
+        apiMessage: 'no default theme found to attach the color scheme to',
+        attempts: 1,
+      });
+    }
+    return def.id;
+  }
+
+  async #requireColorSchemeId(name: string): Promise<number> {
+    const norm = name.trim().toLowerCase();
+    const cached = this.#colorSchemeIds.get(norm);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const response = await this.#request('GET', '/admin/color_schemes.json');
+    const parsed = this.#parse(ColorSchemesSchema, response, 'GET', '/admin/color_schemes.json');
+    for (const scheme of parsed) {
+      this.#colorSchemeIds.set(scheme.name.trim().toLowerCase(), scheme.id);
+    }
+    const id = this.#colorSchemeIds.get(norm);
+    if (id === undefined) {
+      throw new ForumApiError({
+        forumId: this.#forumId,
+        method: 'PUT',
+        path: '/admin/color_schemes/{id}.json',
+        status: 0,
+        apiMessage: `color scheme id for name '${name}' was not found`,
+        attempts: 0,
+      });
+    }
+    return id;
   }
 
   // --- group --------------------------------------------------------------
@@ -614,6 +824,42 @@ class DiscourseApi {
     }
     return result.data;
   }
+}
+
+/**
+ * Convert a canonical slot->hex map into Discourse's color-scheme `colors`
+ * array form `[{ name, hex }]`. Hex values are emitted without a leading `#`,
+ * which is what the admin API stores and returns.
+ */
+/**
+ * Derive the theme `mode` for a color scheme from the default theme's current
+ * assignment, matching what `#applyColorSchemeMode` writes: the scheme assigned
+ * as the light scheme with the OS selector on reads back as `auto`; as the light
+ * scheme alone reads back as `light`; as the dark scheme reads back as `dark`.
+ * Returns undefined when the scheme is not the default theme's light or dark
+ * scheme (so an undeclared mode never diffs).
+ */
+function deriveMode(
+  schemeId: number,
+  a: ThemeSchemeAssignment,
+): 'light' | 'dark' | 'auto' | undefined {
+  if (a.lightId === schemeId) {
+    return a.selectorAuto ? 'auto' : 'light';
+  }
+  if (a.darkId === schemeId) {
+    return 'dark';
+  }
+  return undefined;
+}
+
+function colorsToDiscourse(desired: DesiredColorScheme): { name: string; hex: string }[] {
+  const out: { name: string; hex: string }[] = [];
+  for (const [field, value] of Object.entries(desired)) {
+    if (field.startsWith('color_') && typeof value === 'string') {
+      out.push({ name: field.slice('color_'.length), hex: value });
+    }
+  }
+  return out;
 }
 
 /** Whether a group name denotes Discourse's special moderators group. */

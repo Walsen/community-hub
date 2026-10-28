@@ -16,7 +16,8 @@
  * The kinds of forum entity the Seeder reconciles. The order of this union is
  * not significant; dependency order is given by {@link RESOURCE_TYPE_ORDER}.
  */
-export type ResourceType = 'setting' | 'group' | 'category' | 'user' | 'membership' | 'trustLevel';
+export type ResourceType =
+  'setting' | 'colorScheme' | 'group' | 'category' | 'user' | 'membership' | 'trustLevel';
 
 /**
  * Dependency order for applying resources: settings first, then groups and
@@ -26,6 +27,7 @@ export type ResourceType = 'setting' | 'group' | 'category' | 'user' | 'membersh
  */
 export const RESOURCE_TYPE_ORDER = [
   'setting',
+  'colorScheme',
   'group',
   'category',
   'user',
@@ -43,8 +45,9 @@ export interface SeedResource<T = unknown> {
   /** The entity's resource type. */
   readonly type: ResourceType;
   /**
-   * The resource's Natural_Key within its type: a setting key, group name,
-   * category slug, username, or `"<group>:<username>"` for a membership.
+   * The resource's Natural_Key within its type: a setting key, color-scheme
+   * name, group name, category slug, username, or `"<group>:<username>"` for a
+   * membership.
    */
   readonly naturalKey: string;
   /** The normalized declared attributes (declared fields only). */

@@ -43,6 +43,7 @@ import {
   normalizeUsername,
   trimString,
 } from '../../seeder/normalize.js';
+import type { DesiredColorScheme } from '../../seeder/desired.js';
 import type { FieldDiff, SeedResource } from '../../seeder/types.js';
 import { ForumApiError } from '../../shared/errors.js';
 import type { HttpClient, HttpMethod, HttpResponse } from '../../shared/http.js';
@@ -168,23 +169,73 @@ export function transformDesiredFlarum(
 
   const out: SeedResource[] = [];
   for (const resource of resources) {
-    if (resource.type !== 'trustLevel') {
+    // Trust levels -> memberships (see above).
+    if (resource.type === 'trustLevel') {
+      const desired = resource.desired as { readonly trustLevel: number };
+      const group = resolveTrustLevelGroup(mapping, desired.trustLevel);
+      if (group === undefined || isImplicitMemberGroup(group)) {
+        continue;
+      }
+      const username = resource.naturalKey;
+      out.push({
+        type: 'membership',
+        naturalKey: `${trimString(group)}:${username}`,
+        desired: { member: true },
+      });
+      continue;
+    }
+
+    // Color scheme -> Flarum has no color-scheme entity. Map primary/secondary
+    // to its theme color settings and the mode to its dark-mode-default toggle;
+    // every other palette slot is dropped (there is nowhere to apply it).
+    if (resource.type === 'colorScheme') {
+      const desired = resource.desired as DesiredColorScheme;
+      const primary = desired.color_primary;
+      const secondary = desired.color_secondary;
+      if (primary !== undefined) {
+        out.push({
+          type: 'setting',
+          naturalKey: 'theme_primary_color',
+          desired: { value: `#${primary}` },
+        });
+      }
+      if (secondary !== undefined) {
+        out.push({
+          type: 'setting',
+          naturalKey: 'theme_secondary_color',
+          desired: { value: `#${secondary}` },
+        });
+      }
+      if (desired.mode !== undefined) {
+        out.push({
+          type: 'setting',
+          naturalKey: 'theme_dark_mode_default',
+          desired: { value: desired.mode === 'dark' },
+        });
+      }
+      continue;
+    }
+
+    // Branding settings use canonical (Discourse) keys. Remap the one Flarum
+    // supports (title -> forum_title); drop logo/favicon which Flarum handles
+    // differently and are not in its settings allowlist.
+    if (resource.type === 'setting') {
+      const key = resource.naturalKey;
+      if (key === 'title') {
+        out.push({ ...resource, naturalKey: 'forum_title' });
+        continue;
+      }
+      if (key === 'logo' || key === 'logo_small' || key === 'favicon') {
+        // No Flarum settings-allowlist equivalent; leave it out so the forum is
+        // not asked to set an unknown key. (A future Flarum branding mapping can
+        // add logo/favicon handling.)
+        continue;
+      }
       out.push(resource);
       continue;
     }
-    const desired = resource.desired as { readonly trustLevel: number };
-    const group = resolveTrustLevelGroup(mapping, desired.trustLevel);
-    if (group === undefined || isImplicitMemberGroup(group)) {
-      // No extra group for the implicit Member group (or an unmapped level);
-      // drop the trust-level resource entirely.
-      continue;
-    }
-    const username = resource.naturalKey;
-    out.push({
-      type: 'membership',
-      naturalKey: `${trimString(group)}:${username}`,
-      desired: { member: true },
-    });
+
+    out.push(resource);
   }
   return out;
 }

@@ -118,6 +118,72 @@ describe('normalizers', () => {
   });
 });
 
+describe('buildDesired theme', () => {
+  it('emits a colorScheme resource from the palette with normalized colors', () => {
+    const forum = forumWithConfig({
+      theme: {
+        palette: {
+          name: 'K Builders',
+          primary: '222222',
+          secondary: 'ffffff',
+          tertiary: '0088cc',
+          highlight: 'ffff4d',
+        },
+        mode: 'auto',
+      },
+    });
+    const scheme = byKey(buildDesired(forum)).get('colorScheme:K Builders');
+    expect(scheme).toBeDefined();
+    const desired = scheme?.desired as Record<string, unknown>;
+    expect(desired.name).toBe('K Builders');
+    expect(desired.mode).toBe('auto');
+    // Colours are flat color_<slot> fields, normalized (uppercase, no leading
+    // hash); only declared slots are present so derived slots never diff.
+    expect(desired.color_primary).toBe('222222');
+    expect(desired.color_secondary).toBe('FFFFFF');
+    expect(desired.color_tertiary).toBe('0088CC');
+    expect(desired.color_highlight).toBe('FFFF4D');
+    expect('color_danger' in desired).toBe(false);
+  });
+
+  it('defaults the color-scheme name when none is given', () => {
+    const forum = forumWithConfig({
+      theme: { palette: { primary: '111111', secondary: 'eeeeee', tertiary: '0088cc' } },
+    });
+    const schemes = buildDesired(forum).filter((r) => r.type === 'colorScheme');
+    expect(schemes).toHaveLength(1);
+    expect(schemes[0]?.naturalKey).toBe('community-hub');
+  });
+
+  it('lowers branding into canonical setting resources', () => {
+    const forum = forumWithConfig({
+      theme: {
+        branding: {
+          title: 'K Builders Community',
+          logo: 'https://cdn.example.org/logo.png',
+          favicon: 'https://cdn.example.org/favicon.ico',
+        },
+      },
+    });
+    const byk = byKey(buildDesired(forum));
+    expect((byk.get('setting:title')?.desired as { value: unknown }).value).toBe(
+      'K Builders Community',
+    );
+    expect((byk.get('setting:logo')?.desired as { value: unknown }).value).toBe(
+      'https://cdn.example.org/logo.png',
+    );
+    expect((byk.get('setting:favicon')?.desired as { value: unknown }).value).toBe(
+      'https://cdn.example.org/favicon.ico',
+    );
+  });
+
+  it('emits nothing for an absent theme', () => {
+    const forum = forumWithConfig({ settings: { title: 'Plain' } });
+    const resources = buildDesired(forum);
+    expect(resources.some((r) => r.type === 'colorScheme')).toBe(false);
+  });
+});
+
 describe('buildDesired write-only password reference', () => {
   it('lists initialPassword in WRITE_ONLY_FIELDS', () => {
     expect(WRITE_ONLY_FIELDS.has('initialPassword')).toBe(true);

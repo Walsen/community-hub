@@ -38,6 +38,19 @@ forums:
     config:
       settings:
         title: "Example Community"
+      theme:                      # optional; palette -> colorScheme, branding/mode -> settings
+        palette:
+          name: "Example Scheme"  # optional; defaults to "community-hub"
+          primary: "222222"       # required: text  (6-hex, no #)
+          secondary: "ffffff"     # required: background
+          tertiary: "0088cc"      # required: links / primary accent
+          highlight: "ffff4d"     # optional slots: quaternary, headerBackground,
+          # danger / success / love / headerPrimary ...   headerPrimary, highlight, danger, success, love
+        mode: auto                # optional: light | dark | auto
+        branding:                 # optional; lowered into site settings
+          title: "Example Community"
+          logo: "https://cdn.example.org/logo.png"
+          favicon: "https://cdn.example.org/favicon.ico"
       groups:
         - name: moderators
           members: [alice]
@@ -80,6 +93,7 @@ There is no SMTP block. The Platform derives SES settings: host `email-smtp.<reg
 - Secret-bearing fields accept only Secret_References under `/community-hub/<env>/<forumId>/`, excluding the reserved `ses-smtp-*` names. Errors show the field path, never the value. YAML parse errors are reported by line and column without quoting source lines.
 - Group members and trust-level mappings reference declared users or groups.
 - Seeding settings that would break SES (Discourse `notification_email`, Flarum `mail_*`) is rejected.
+- `config.theme` is optional. Its `palette` becomes a single `colorScheme` resource (Natural_Key = palette `name`, default `community-hub`); `branding` and `mode` are lowered into `setting` resources using canonical keys (`title`, `logo`, `logo_small`, `favicon`). Discourse reconciles the color scheme via `/admin/color_schemes` and applies `mode` through the default-scheme site settings. Flarum has no color-scheme entity: its adapter maps `primary`/`secondary` to `theme_primary_color`/`theme_secondary_color` and `mode` to `theme_dark_mode_default`, remaps `title` to `forum_title`, and drops the remaining slots and `logo`/`favicon`.
 - Issues are collected (not fail-fast), sorted by path, and thrown as one `MetadataValidationError`. The returned model is deep-frozen and depends only on `(text, registry)`.
 
 ## Secret_Reference format
@@ -94,7 +108,8 @@ Parsed into `{ store: 'ssm' | 'secretsmanager', id: string }`. Names follow `/co
 ## Seeder domain types
 
 ```ts
-type ResourceType = 'setting' | 'group' | 'category' | 'user' | 'membership' | 'trustLevel';
+type ResourceType =
+  | 'setting' | 'colorScheme' | 'group' | 'category' | 'user' | 'membership' | 'trustLevel';
 
 interface SeedResource<T = unknown> {
   type: ResourceType;

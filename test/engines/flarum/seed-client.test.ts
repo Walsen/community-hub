@@ -179,6 +179,44 @@ describe('transformDesiredFlarum', () => {
     const out = transformDesiredFlarum([group], forum);
     expect(out[0]).toBe(group);
   });
+
+  it('maps a colorScheme to Flarum theme color settings and drops other slots', () => {
+    const forum = forumWith({});
+    const scheme = resource('colorScheme', 'K Builders', {
+      name: 'K Builders',
+      mode: 'dark',
+      color_primary: '222222',
+      color_secondary: 'FFFFFF',
+      color_tertiary: '0088CC',
+      color_highlight: 'FFFF4D',
+    });
+    const out = transformDesiredFlarum([scheme], forum);
+    const byKey = new Map(out.map((r) => [`${r.type}:${r.naturalKey}`, r.desired] as const));
+    // primary/secondary map to Flarum theme settings (with a leading #); the
+    // mode maps to the dark-mode toggle; tertiary/highlight are dropped.
+    expect(byKey.get('setting:theme_primary_color')).toEqual({ value: '#222222' });
+    expect(byKey.get('setting:theme_secondary_color')).toEqual({ value: '#FFFFFF' });
+    expect(byKey.get('setting:theme_dark_mode_default')).toEqual({ value: true });
+    expect(out.some((r) => r.type === 'colorScheme')).toBe(false);
+    expect(out).toHaveLength(3);
+  });
+
+  it('remaps the canonical title branding setting to forum_title and drops logo/favicon', () => {
+    const forum = forumWith({});
+    const out = transformDesiredFlarum(
+      [
+        resource('setting', 'title', { value: 'K Builders' }),
+        resource('setting', 'logo', { value: 'https://x/logo.png' }),
+        resource('setting', 'favicon', { value: 'https://x/favicon.ico' }),
+      ],
+      forum,
+    );
+    const keys = out.map((r) => `${r.type}:${r.naturalKey}`);
+    expect(keys).toContain('setting:forum_title');
+    expect(keys).not.toContain('setting:logo');
+    expect(keys).not.toContain('setting:favicon');
+    expect(out).toHaveLength(1);
+  });
 });
 
 describe('Flarum seed client request shapes', () => {

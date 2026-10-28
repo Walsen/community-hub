@@ -137,6 +137,7 @@ export function composeSeedClient(probe: () => Promise<void>, handlers: SeedHand
         return;
       }
       case 'setting':
+      case 'colorScheme':
       case 'group':
       case 'category':
       case 'user':

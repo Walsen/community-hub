@@ -42,6 +42,7 @@ const DISCOURSE_REQUIRED_SECRETS: readonly ForumSecretName[] = ['adminPassword',
 /** Resource types the Discourse seed client reconciles. */
 const DISCOURSE_SUPPORTED_TYPES: ReadonlySet<ResourceType> = new Set<ResourceType>([
   'setting',
+  'colorScheme',
   'group',
   'category',
   'user',

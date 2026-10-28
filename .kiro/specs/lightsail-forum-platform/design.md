@@ -647,7 +647,7 @@ Pipeline:
 #### EngineAdapter contract (`engine-adapter.ts`)
 
 ```ts
-// ResourceType, RESOURCE_TYPE_ORDER (setting, group, category, user, membership, trustLevel), SeedResource,
+// ResourceType, RESOURCE_TYPE_ORDER (setting, colorScheme, group, category, user, membership, trustLevel), SeedResource,
 // FieldDiff, CreateAction, UpdateAction and ActualState are defined in src/seeder/types.ts.
 
 export type ForumSecretName = 'adminPassword' | 'apiKey' | 'databasePassword';
@@ -763,6 +763,7 @@ export function createDefaultRegistry(): EngineRegistry {
 | Type | Read | Create | Update |
 |---|---|---|---|
 | setting | `GET /admin/site_settings.json` | `PUT /admin/site_settings/{key}.json` | same |
+| colorScheme | `GET /admin/color_schemes.json` (by name) + `GET /admin/themes.json` for the default theme's scheme assignment (to read `mode` back) | `POST /admin/color_schemes.json`, then assign to the default theme | `PUT /admin/color_schemes/{id}.json`, then assign to the default theme |
 | group | `GET /groups/{name}.json` (404 = absent) | `POST /admin/groups.json` | `PUT /groups/{id}.json` |
 | category | `GET /site.json` (all categories incl. subcategories, by slug) | `POST /categories.json` | `PUT /categories/{id}.json` |
 | user | `GET /u/{username}.json` + `GET /u/{username}/emails.json` | `POST /users.json` (`active`, `approved`) then `POST /session/forgot_password` if no password ref | `PUT /u/{username}/preferences/email` (admin) |
@@ -770,6 +771,8 @@ export function createDefaultRegistry(): EngineRegistry {
 | trustLevel | from user payload `trust_level` | `PUT /admin/users/{id}/trust_level` | same |
 
   For `moderators`, membership add/remove maps to `PUT /admin/users/{id}/grant_moderation` / `revoke_moderation`. System users (id ≤ 0) are excluded from membership reads. `transformDesired` encodes setting values as Discourse strings (booleans `"true"/"false"`, lists joined with `|`).
+
+  The `colorScheme` resource (from `config.theme.palette`) carries flat `color_<slot>` fields (only declared slots; derived slots Discourse auto-adds such as `selected`/`hover`/`love` are ignored, so re-application is idempotent) plus an optional `mode`. `mode` is applied by setting the DEFAULT theme's `color_scheme_id` (`light`/`auto`) or `dark_color_scheme_id` (`dark`) via `PUT /admin/themes/{id}.json` — NOT a site setting (`default_dark_color_scheme_id` does not exist on current Discourse); `auto` also sets `interface_color_selector` so visitors follow their OS. `mode` is read back from the theme assignment so it converges. `config.theme.branding` (`title`, `logo`, `logo_small`, `favicon`) is lowered into `setting` resources by the desired builder, not handled here.
 
 #### Flarum adapter
 
@@ -809,6 +812,8 @@ export function createDefaultRegistry(): EngineRegistry {
 | membership | user `relationships.groups` for members of declared groups | `PATCH /api/users/{id}` with groups list + group | same, minus group |
 
   `trustLevel` is **not** in `supportedTypes`. Instead `transformDesired` replaces each `trustLevel` resource with a `membership` resource for the mapped group (no resource for the implicit Member group). Because mapped groups are declared groups, their membership stays authoritative: declared members ∪ users mapped by trust level.
+
+  `colorScheme` is likewise **not** in `supportedTypes`: Flarum has no color-scheme entity. `transformDesired` rewrites it into `setting` resources — `color_primary`/`color_secondary` → `theme_primary_color`/`theme_secondary_color` (with a leading `#`), `mode` → `theme_dark_mode_default` — and drops the remaining palette slots. It also remaps the canonical branding setting `title` → `forum_title` and drops `logo`/`logo_small`/`favicon` (no allowlisted Flarum equivalent).
 
 ### Infrastructure (`src/infra/`)
 
@@ -1333,7 +1338,7 @@ For any desired state D, actual state A and supported-type set T, every resource
 
 ### Property 11: Plans are in dependency order
 
-For any D and A, the actions of `plan(D, A)` are ordered by `setting, group, category, user, membership, trustLevel`, and the executor applies them in that order.
+For any D and A, the actions of `plan(D, A)` are ordered by `setting, colorScheme, group, category, user, membership, trustLevel`, and the executor applies them in that order.
 
 **Validates: Requirements 8.8**
 
