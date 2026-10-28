@@ -230,6 +230,26 @@ describe('loadMetadata', () => {
     });
   });
 
+  describe('cross-field: group names', () => {
+    function withGroup(name: string): RawDoc {
+      const doc = baseDoc();
+      const forum = doc.forums[0]!;
+      Object.assign(forum, { config: { groups: [{ name, members: [] }] } });
+      return doc;
+    }
+
+    it("rejects a group name containing ':' at the group name path", () => {
+      const issues = loadIssues(withGroup('a:b'));
+      expect(hasIssueAt(issues, 'forums[0].config.groups[0].name')).toBe(true);
+      const issue = issues.find((i) => i.path === 'forums[0].config.groups[0].name');
+      expect(issue!.message).toContain("':'");
+    });
+
+    it('accepts an ordinary group name', () => {
+      expect(() => load(withGroup('veterans'))).not.toThrow();
+    });
+  });
+
   describe('engine resolution', () => {
     it('rejects an unknown engine at forums[i].engine naming the id', () => {
       const doc = baseDoc();

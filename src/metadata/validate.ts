@@ -126,6 +126,7 @@ function checkForum(
   issues: ValidationIssue[],
 ): void {
   checkSecretReferences(environment, forum, index, issues);
+  checkGroupNames(forum, index, issues);
   checkGroupMembers(forum, index, issues);
 
   // Unknown engine: emit the issue and skip adapter-driven checks for this
@@ -211,6 +212,26 @@ function checkSecretReference(
       path: formatPath(path),
       message: `secret name '${purpose}' is reserved for the Platform`,
     });
+  }
+}
+
+/**
+ * Group names must not contain `:`. Membership resources are keyed
+ * `"<group>:<username>"` and both the reconciler and the executor split that key
+ * on the FIRST colon, so a group name containing one would be mis-parsed into a
+ * different group and username. Rejected at `forums[i].config.groups[g].name`.
+ */
+function checkGroupNames(forum: ForumModel, index: number, issues: ValidationIssue[]): void {
+  const groups = forum.config.groups;
+  for (let g = 0; g < groups.length; g++) {
+    const group = groups[g];
+    if (group !== undefined && group.name.includes(':')) {
+      issues.push({
+        path: formatPath(['forums', index, 'config', 'groups', g, 'name']),
+        message:
+          "group name must not contain ':' (it delimits group and username in membership keys)",
+      });
+    }
   }
 }
 
