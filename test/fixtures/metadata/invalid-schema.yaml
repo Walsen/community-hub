@@ -1,0 +1,25 @@
+# An invalid metadata file: `version` must be 1 and `strictObject` rejects the
+# unknown top-level `bogus` key, so the loader raises a MetadataValidationError
+# before any dependency is constructed or any AWS call is made. Used by the
+# entry-point exit-code tests to assert the config-error exit code (2). No real
+# secret values appear anywhere.
+version: 99
+bogus: unexpected-key
+environment:
+  name: community-test
+  region: us-east-1
+  availabilityZone: us-east-1a
+  dnsMode: route53
+  rootDomain: example.org
+  adminEmail: ops@example.org
+  sshAllowedCidrs:
+    - 203.0.113.0/24
+forums:
+  - id: main
+    engine: discourse
+    subdomain: forum
+    bundleId: small_3_0
+    senderAddress: noreply
+    secrets:
+      adminPassword: ssm:/community-hub/community-test/main/admin-password
+      apiKey: ssm:/community-hub/community-test/main/api-key

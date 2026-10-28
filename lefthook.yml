@@ -1,0 +1,22 @@
+# Git hooks managed by lefthook. Install with `just setup` (runs `lefthook install`).
+# Do not bypass these with --no-verify.
+
+pre-commit:
+  parallel: false
+  commands:
+    gitleaks:
+      run: gitleaks protect --staged --redact
+    prettier:
+      glob: '*.{ts,tsx,js,mjs,cjs,json,jsonc,yml,yaml,md}'
+      run: npx prettier --check {staged_files}
+    eslint:
+      glob: '*.{ts,tsx,js,mjs,cjs}'
+      run: npx eslint {staged_files}
+    shfmt:
+      glob: '*.sh'
+      run: shfmt -d {staged_files}
+
+pre-push:
+  commands:
+    check:
+      run: just check

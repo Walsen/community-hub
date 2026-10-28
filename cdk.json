@@ -1,0 +1,10 @@
+{
+  "app": "npx tsc -p tsconfig.build.json && node dist/bin/app.js",
+  "watch": {
+    "include": ["bin/**", "src/**"],
+    "exclude": ["dist", "cdk.out", "node_modules"]
+  },
+  "context": {
+    "//": "Synthesize an environment with: npx cdk synth -c metadata=metadata/example.yaml"
+  }
+}

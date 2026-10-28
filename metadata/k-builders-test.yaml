@@ -1,0 +1,25 @@
+version: 1
+
+environment:
+  name: k-builders-test
+  region: us-east-1
+  availabilityZone: us-east-1a
+  dnsMode: route53-existing
+  hostedZoneId: Z0312538QMXTZXKV0SGK
+  rootDomain: k-builders.net
+  adminEmail: srinclan@arcamo.org
+  sshAllowedCidrs: []
+  acmeStaging: true
+
+forums:
+  - id: testhub
+    engine: discourse
+    subdomain: test
+    bundleId: medium_3_0
+    senderAddress: noreply-test
+    secrets:
+      adminPassword: ssm:/community-hub/k-builders-test/testhub/admin-password
+      apiKey: ssm:/community-hub/k-builders-test/testhub/api-key
+    config:
+      settings:
+        title: 'K Builders Test'

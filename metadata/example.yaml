@@ -1,0 +1,74 @@
+version: 1
+
+environment:
+  name: community-prod
+  region: us-east-1
+  availabilityZone: us-east-1a
+  dnsMode: route53
+  rootDomain: example.org
+  adminEmail: ops@example.org
+  sshAllowedCidrs:
+    - 203.0.113.0/24
+  snapshotTimeUtc: '06:00'
+  mailDomain: example.org
+  dmarcPolicy: none
+  acmeStaging: false
+
+forums:
+  - id: main
+    engine: discourse
+    subdomain: forum
+    bundleId: medium_3_0
+    senderAddress: noreply
+    credentialRotation: 0
+    secrets:
+      adminPassword: ssm:/community-hub/community-prod/main/admin-password
+      apiKey: ssm:/community-hub/community-prod/main/api-key
+    config:
+      settings:
+        title: Example Community
+      groups:
+        - name: moderators
+          members:
+            - alice
+      categories:
+        - slug: announcements
+          name: Announcements
+          color: '0088CC'
+      users:
+        - username: alice
+          email: alice@example.org
+          trustLevel: 3
+          password: ssm:/community-hub/community-prod/main/users/alice
+    engineOptions: {}
+
+  - id: dev
+    engine: flarum
+    subdomain: dev
+    bundleId: small_3_0
+    senderAddress: dev-forum@example.org
+    credentialRotation: 0
+    secrets:
+      adminPassword: ssm:/community-hub/community-prod/dev/admin-password
+      apiKey: ssm:/community-hub/community-prod/dev/api-key
+      databasePassword: ssm:/community-hub/community-prod/dev/database-password
+    config:
+      settings:
+        forum_title: Example Dev Community
+      groups:
+        - name: veterans
+          members:
+            - bob
+      categories:
+        - slug: general
+          name: General
+          color: '2E7D32'
+      users:
+        - username: bob
+          email: bob@example.org
+          trustLevel: 3
+          password: ssm:/community-hub/community-prod/dev/users/bob
+    engineOptions:
+      trustLevelGroups:
+        '0': members
+        '3': veterans

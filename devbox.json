@@ -1,0 +1,21 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.15.0/.schema/devbox.schema.json",
+  "packages": [
+    "nodejs@22",
+    "just@1.42.4",
+    "jq@1.7.1",
+    "yq-go@4.44.6",
+    "awscli2@2.27.50",
+    "ssm-session-manager-plugin@1.2.677.0",
+    "shellcheck@0.10.0",
+    "shfmt@3.11.0",
+    "gitleaks@8.24.3",
+    "lefthook@1.11.14",
+    "gh@2.103.2"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo \"community-hub devbox: node $(node --version 2>/dev/null || echo '?'), just $(just --version 2>/dev/null || echo '?'). Run 'just' to list recipes.\""
+    ]
+  }
+}

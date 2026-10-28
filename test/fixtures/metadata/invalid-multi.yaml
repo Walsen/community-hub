@@ -1,0 +1,29 @@
+# Invalid metadata fixture for the validation CLI tests.
+#
+# Deliberately breaks three single-field schema rules in the environment block
+# so the loader collects multiple issues (validation is not fail-fast). Their
+# paths sort as: environment.dmarcPolicy < environment.dnsMode <
+# environment.sshAllowedCidrs[0].
+#
+# All secret references are well-formed placeholders; the only problems are the
+# three invalid enum/CIDR values below.
+version: 1
+environment:
+  name: community-test
+  region: us-east-1
+  availabilityZone: us-east-1a
+  dnsMode: lightsail # invalid: not one of route53 | route53-existing | external
+  rootDomain: example.org
+  adminEmail: ops@example.org
+  sshAllowedCidrs:
+    - not-a-cidr # invalid: not an IPv4 CIDR block
+  dmarcPolicy: block # invalid: not one of none | quarantine | reject
+forums:
+  - id: main
+    engine: discourse
+    subdomain: forum
+    bundleId: medium_3_0
+    senderAddress: noreply
+    secrets:
+      adminPassword: ssm:/community-hub/community-test/main/admin-password
+      apiKey: ssm:/community-hub/community-test/main/api-key

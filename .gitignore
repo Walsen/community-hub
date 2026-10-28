@@ -1,0 +1,16 @@
+node_modules
+dist
+cdk.out
+
+# Local developer settings and tooling state (never committed)
+.env.local
+.devbox
+.direnv
+
+# Private keys and local debug artifacts (never committed)
+*.pem
+*.key
+sshkey.pem
+
+# Code review artifacts (not committed)
+semantic-review/

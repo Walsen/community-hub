@@ -1,0 +1,11 @@
+dist
+cdk.out
+node_modules
+package-lock.json
+.kiro
+.devbox
+LICENSE
+
+# Intentionally malformed YAML fixture for the validation CLI syntax-error test.
+test/fixtures/metadata/syntax-error.yaml
+semantic-review/
