@@ -1,10 +1,17 @@
 /**
  * Pure builder for the inline IAM send policy a single forum's SES user needs.
  *
- * The policy grants exactly the two SES send actions, scoped to this
- * Environment's Email_Identity and Configuration_Set, and conditioned on the
- * forum's own Sender_Address. Because sender addresses are unique per
- * Environment (a loader rule), no forum can send mail as another (Req 11.7).
+ * The policy grants exactly the two SES send actions on `Resource: *`,
+ * conditioned on the forum's own Sender_Address (`ses:FromAddress`). The
+ * condition — not a resource ARN — is what scopes sending: `SendRawEmail`
+ * authorization is evaluated against EVERY identity touched by a send,
+ * including the recipient identity in the SES sandbox, so pinning `Resource`
+ * to the sending identity makes SES deny sends to any recipient that is not
+ * also listed (a real "554 Access denied ... identity/<recipient>" failure
+ * observed in sandbox). AWS's own guidance is to use `Resource: *` with a
+ * `ses:FromAddress`/`FromDomain` condition for exactly this reason. Because
+ * sender addresses are unique per Environment (a loader rule), the condition
+ * still guarantees no forum can send mail as another (Req 11.7).
  *
  * The result is plain JSON so `ses-sender.ts` can attach it to the user's
  * inline policy without this module touching CDK or the AWS SDK. This module
@@ -34,32 +41,29 @@ export interface SesSenderPolicyInput {
 
 /**
  * Build the single least-privilege SES send statement for one forum: allow
- * `ses:SendEmail` and `ses:SendRawEmail` only on this Environment's identity
- * and configuration-set ARNs, and only when the From address equals the
- * forum's Sender_Address. No wildcards appear in actions or resources
- * (Req 11.7).
- *
- * The configuration-set ARN is included because SES authorizes the default
- * configuration set as a second resource of the send; it grants no other
- * capability.
+ * `ses:SendEmail` and `ses:SendRawEmail` on `Resource: *`, scoped to the
+ * forum's own From address by a `ses:FromAddress` condition. The actions are
+ * exactly the two send actions (no action wildcard); `Resource` must be `*`
+ * because SES evaluates `SendRawEmail` authorization against every identity in
+ * a send (the recipient included, in sandbox), so a pinned identity ARN denies
+ * legitimate sends to other recipients. The sender restriction is enforced by
+ * the condition instead.
  *
  * @param input partition, region, account, mail domain, configuration set
- *   name and the forum's sender address.
+ *   name and the forum's sender address. (`mailDomain`/`configurationSetName`
+ *   are retained for signature stability and error context; the statement is
+ *   scoped by the From-address condition, not by their ARNs.)
  * @returns a single-element array holding the send statement, as plain JSON.
  */
 export function buildSesSenderPolicy(input: SesSenderPolicyInput): PolicyStatementJson[] {
-  const { partition, region, account, mailDomain, configurationSetName, senderAddress } = input;
-  const arnPrefix = `arn:${partition}:ses:${region}:${account}:`;
+  const { senderAddress } = input;
 
   return [
     {
       Sid: 'SesSendAsForumSender',
       Effect: 'Allow',
       Action: ['ses:SendEmail', 'ses:SendRawEmail'],
-      Resource: [
-        `${arnPrefix}identity/${mailDomain}`,
-        `${arnPrefix}configuration-set/${configurationSetName}`,
-      ],
+      Resource: '*',
       Condition: {
         StringEquals: {
           'ses:FromAddress': senderAddress,

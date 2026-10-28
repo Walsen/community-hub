@@ -2050,35 +2050,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
                 },
               },
               "Effect": "Allow",
-              "Resource": [
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "arn:",
-                      {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ses:us-east-1:123456789012:identity/example.org",
-                    ],
-                  ],
-                },
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "arn:",
-                      {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ses:us-east-1:123456789012:configuration-set/",
-                      {
-                        "Ref": "EmailConfigurationSet6A762543",
-                      },
-                    ],
-                  ],
-                },
-              ],
+              "Resource": "*",
               "Sid": "SesSendAsForumSender",
             },
           ],
@@ -2587,35 +2559,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
                 },
               },
               "Effect": "Allow",
-              "Resource": [
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "arn:",
-                      {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ses:us-east-1:123456789012:identity/example.org",
-                    ],
-                  ],
-                },
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "arn:",
-                      {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ses:us-east-1:123456789012:configuration-set/",
-                      {
-                        "Ref": "EmailConfigurationSet6A762543",
-                      },
-                    ],
-                  ],
-                },
-              ],
+              "Resource": "*",
               "Sid": "SesSendAsForumSender",
             },
           ],
@@ -5970,35 +5914,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
                 },
               },
               "Effect": "Allow",
-              "Resource": [
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "arn:",
-                      {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ses:us-east-1:123456789012:identity/example.org",
-                    ],
-                  ],
-                },
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "arn:",
-                      {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ses:us-east-1:123456789012:configuration-set/",
-                      {
-                        "Ref": "EmailConfigurationSet6A762543",
-                      },
-                    ],
-                  ],
-                },
-              ],
+              "Resource": "*",
               "Sid": "SesSendAsForumSender",
             },
           ],
@@ -6608,35 +6524,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
                 },
               },
               "Effect": "Allow",
-              "Resource": [
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "arn:",
-                      {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ses:us-east-1:123456789012:identity/example.org",
-                    ],
-                  ],
-                },
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "arn:",
-                      {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ses:us-east-1:123456789012:configuration-set/",
-                      {
-                        "Ref": "EmailConfigurationSet6A762543",
-                      },
-                    ],
-                  ],
-                },
-              ],
+              "Resource": "*",
               "Sid": "SesSendAsForumSender",
             },
           ],
@@ -9938,35 +9826,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
                 },
               },
               "Effect": "Allow",
-              "Resource": [
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "arn:",
-                      {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ses:us-east-1:123456789012:identity/example.org",
-                    ],
-                  ],
-                },
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "arn:",
-                      {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ses:us-east-1:123456789012:configuration-set/",
-                      {
-                        "Ref": "EmailConfigurationSet6A762543",
-                      },
-                    ],
-                  ],
-                },
-              ],
+              "Resource": "*",
               "Sid": "SesSendAsForumSender",
             },
           ],
@@ -10564,35 +10424,7 @@ exec /bin/bash /usr/local/sbin/community-hub-install
                 },
               },
               "Effect": "Allow",
-              "Resource": [
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "arn:",
-                      {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ses:us-east-1:123456789012:identity/example.org",
-                    ],
-                  ],
-                },
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      "arn:",
-                      {
-                        "Ref": "AWS::Partition",
-                      },
-                      ":ses:us-east-1:123456789012:configuration-set/",
-                      {
-                        "Ref": "EmailConfigurationSet6A762543",
-                      },
-                    ],
-                  ],
-                },
-              ],
+              "Resource": "*",
               "Sid": "SesSendAsForumSender",
             },
           ],

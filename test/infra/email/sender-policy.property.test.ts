@@ -14,10 +14,12 @@ import type { PolicyStatementJson } from '../../../src/infra/tls/acme-policy.js'
  *
  * For arbitrary (partition, region, account, mailDomain, configurationSetName,
  * senderAddress), {@link buildSesSenderPolicy} returns exactly one Allow
- * statement that names only `ses:SendEmail` and `ses:SendRawEmail`, scoped to
+ * statement that names only `ses:SendEmail` and `ses:SendRawEmail` on
  * exactly the Environment's Email_Identity and Configuration_Set ARNs, and
- * conditioned with `StringEquals { 'ses:FromAddress': <senderAddress> }`. No
- * wildcard ever appears in an action or a resource, so a forum can only send
+ * `Resource: *`, conditioned with `StringEquals { 'ses:FromAddress': <senderAddress> }`.
+ * No wildcard appears in an ACTION; the resource is `*` by design (SES authorizes
+ * SendRawEmail against every identity in a send, so the From-address condition,
+ * not a resource ARN, is what ensures a forum can only send
  * mail as its own Sender_Address. The builder is pure and deterministic: the
  * same input produces a deep-equal result.
  *
@@ -95,16 +97,16 @@ describe('Property: SES sender policy is least-privilege and scoped (Req 11.7)',
     );
   });
 
-  it('scopes Resource to exactly the identity and configuration-set ARNs', () => {
+  it('uses Resource: * (SendRawEmail is authorized against every identity, incl. the recipient)', () => {
     fc.assert(
       fc.property(inputArb, (input) => {
         const statement = buildSesSenderPolicy(input)[0]!;
-        const arnPrefix = `arn:${input.partition}:ses:${input.region}:${input.account}:`;
-
-        expect(resourcesOf(statement)).toEqual([
-          `${arnPrefix}identity/${input.mailDomain}`,
-          `${arnPrefix}configuration-set/${input.configurationSetName}`,
-        ]);
+        // SES evaluates SendRawEmail authorization against every identity a send
+        // touches, including the recipient identity in the sandbox. Pinning
+        // Resource to the sending identity therefore denies legitimate sends to
+        // other recipients (a real 554 Access denied seen in sandbox). AWS's
+        // guidance is Resource: * scoped by a ses:FromAddress condition.
+        expect(resourcesOf(statement)).toEqual(['*']);
       }),
       { seed: SEED, numRuns: 300 },
     );
@@ -129,17 +131,17 @@ describe('Property: SES sender policy is least-privilege and scoped (Req 11.7)',
     );
   });
 
-  it('never uses a wildcard in any action or resource', () => {
+  it('never uses a wildcard in any action (the resource is intentionally *)', () => {
     fc.assert(
       fc.property(inputArb, (input) => {
         const statement = buildSesSenderPolicy(input)[0]!;
 
+        // Actions are exact — no action wildcard. The resource is * by design
+        // (the ses:FromAddress condition is the scoping mechanism).
         for (const action of actionsOf(statement)) {
           expect(action).not.toContain('*');
         }
-        for (const resource of resourcesOf(statement)) {
-          expect(resource).not.toContain('*');
-        }
+        expect(resourcesOf(statement)).toEqual(['*']);
       }),
       { seed: SEED, numRuns: 300 },
     );
