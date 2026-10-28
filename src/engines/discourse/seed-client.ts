@@ -383,10 +383,17 @@ class DiscourseApi {
    * Discourse carries the default light/dark color scheme on the default theme
    * object (`color_scheme_id` / `dark_color_scheme_id`), not on a site setting
    * (the old `default_dark_color_scheme_id` setting does not exist on this
-   * version — assuming it did cost a failed apply). `light` sets the theme's
-   * light scheme; `dark` sets its dark scheme; `auto` sets the light scheme and
-   * enables the interface color selector so visitors can follow their OS
-   * preference. Unknown modes are a no-op.
+   * version — assuming it did cost a failed apply).
+   *
+   * - `light`: the scheme is the light scheme AND the dark slot is cleared so
+   *   the site always renders in it (a dark-mode visitor still sees the brand).
+   * - `dark`: the scheme is the dark slot.
+   * - `auto`: the scheme is assigned to BOTH slots so the brand palette shows in
+   *   either OS mode, and the interface color selector is enabled so visitors can
+   *   still switch. (Assigning only the light slot left dark-mode visitors on the
+   *   stock Dark scheme — the brand colours did not appear.)
+   *
+   * Unknown modes are a no-op.
    */
   async #applyColorSchemeMode(desired: DesiredColorScheme, id: number): Promise<void> {
     const mode = desired.mode;
@@ -394,9 +401,9 @@ class DiscourseApi {
       return;
     }
     const themeId = await this.#defaultThemeId();
-    if (mode === 'light' || mode === 'auto') {
+    if (mode === 'light') {
       await this.#request('PUT', `/admin/themes/${themeId}.json`, {
-        theme: { color_scheme_id: id },
+        theme: { color_scheme_id: id, dark_color_scheme_id: null },
       });
     }
     if (mode === 'dark') {
@@ -405,6 +412,9 @@ class DiscourseApi {
       });
     }
     if (mode === 'auto') {
+      await this.#request('PUT', `/admin/themes/${themeId}.json`, {
+        theme: { color_scheme_id: id, dark_color_scheme_id: id },
+      });
       // Let each visitor pick / follow their OS light-dark preference.
       await this.#request(
         'PUT',
@@ -843,10 +853,26 @@ function deriveMode(
   schemeId: number,
   a: ThemeSchemeAssignment,
 ): 'light' | 'dark' | 'auto' | undefined {
-  if (a.lightId === schemeId) {
-    return a.selectorAuto ? 'auto' : 'light';
+  const isLight = a.lightId === schemeId;
+  const isDark = a.darkId === schemeId;
+  // `auto` writes the scheme to BOTH slots and turns the selector on.
+  if (isLight && isDark && a.selectorAuto) {
+    return 'auto';
   }
-  if (a.darkId === schemeId) {
+  // `light` writes the light slot and clears the dark slot.
+  if (isLight && a.darkId === undefined) {
+    return 'light';
+  }
+  // `dark` writes only the dark slot.
+  if (isDark && !isLight) {
+    return 'dark';
+  }
+  // Any other assignment (e.g. light set but dark points elsewhere) is not one
+  // this adapter produces, so report no managed mode rather than diff forever.
+  if (isLight) {
+    return 'light';
+  }
+  if (isDark) {
     return 'dark';
   }
   return undefined;
