@@ -12,12 +12,14 @@
  * with `authType: NONE`, so it is unauthenticated at the HTTP layer. This is
  * deliberate: a forum instance cannot carry AWS credentials before it has an SSM
  * activation (that is the chicken-and-egg problem the broker exists to solve), so
- * SigV4 (`AWS_IAM`) is not available to the caller. Authorization is instead the
- * TCP source IP matching the forum's Lightsail static IP, which belongs to this
- * account and cannot be spoofed across a completed TLS handshake. The handler
- * enforces that per-forum source-IP check and returns generic 403/404/409
- * statuses. The README documents this endpoint as unauthenticated at the HTTP
- * layer.
+ * SigV4 (`AWS_IAM`) is not available to the caller. Authorization is instead
+ * account ownership of the claimed forum: the handler verifies via `GetInstance`
+ * that the forum's own Lightsail instance exists and is running, enforces one
+ * registration per forum and a one-hour activation expiry, and returns generic
+ * 403/404/409 statuses. (Source IP cannot be used: Lightsail NATs outbound
+ * traffic away from the static IP.) The residual exposure and why it is accepted
+ * are in the design doc under "Residual exposure"; the README documents this
+ * endpoint as unauthenticated at the HTTP layer.
  *
  * This construct makes no SDK calls at synth. The only synth-time guard is the
  * `FORUMS` environment-variable size check below.
@@ -180,8 +182,8 @@ export class BootstrapBroker extends Construct {
     });
 
     // authType: NONE — unauthenticated at the HTTP layer by design (see the
-    // class TSDoc and README). Authorization is the per-forum source-IP check
-    // the handler enforces; forum instances have no AWS credentials to sign with.
+    // class TSDoc and README). Authorization is the handler's per-forum instance
+    // ownership check; forum instances have no AWS credentials to sign with.
     const url = fn.addFunctionUrl({ authType: FunctionUrlAuthType.NONE });
 
     Tags.of(this).add(TAG_ENVIRONMENT, env);

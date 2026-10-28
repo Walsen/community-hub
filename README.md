@@ -294,9 +294,13 @@ Lightsail instances cannot use instance profiles, so each one claims a
 single-use, one-hour SSM activation from a per-Environment **bootstrap broker**
 at first boot. The broker is a Lambda function URL that is unauthenticated at
 the HTTP layer by design — an instance has no AWS credentials to sign with
-before it is registered. Authorization is instead the TCP source IP matching the
-forum's Lightsail static IP, combined with the single-use activation; the broker
-returns generic statuses and never logs activation codes.
+before it is registered. Authorization is instead account ownership of the
+claimed forum (the broker verifies its Lightsail instance exists and is running),
+combined with a single registration per forum and a single-use, one-hour
+activation; the broker returns generic statuses and never logs activation codes.
+Because the caller is not authenticated, anyone who knows an environment and
+forum id could request an activation while that forum has no registered node; the
+bounds on that and why it is accepted are in the design doc ("Residual exposure").
 
 If first-boot registration reports a 409, a stale managed node is already
 registered for that forum; deregister it before the instance can re-register.

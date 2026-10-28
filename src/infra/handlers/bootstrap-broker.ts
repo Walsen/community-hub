@@ -3,14 +3,17 @@
  *
  * One broker runs per Environment behind a Lambda function URL with
  * `authType: NONE`. The endpoint is unauthenticated at the HTTP layer;
- * authorization is the TCP source IP matching the forum's Lightsail static IP,
- * which belongs to this account and cannot be spoofed across a completed TLS
- * handshake. A forum's instance claims a single-use, one-hour SSM hybrid
+ * authorization is ACCOUNT OWNERSHIP of the claimed forum: `GetInstance` must
+ * show the forum's own Lightsail instance exists and is running. (The request
+ * source IP is not used: Lightsail NATs outbound traffic away from the attached
+ * static IP.) The residual exposure, that the caller is not authenticated, and
+ * why it is accepted are recorded in the design doc under "Residual exposure".
+ * A forum's instance claims a single-use, one-hour SSM hybrid
  * activation at first boot so it can register as a managed node without the
  * activation code ever appearing in any CloudFormation-visible location
  * (templates, user data, stack events) or in logs.
  *
- * The claim is deliberately opaque: unknown forum, wrong source IP and
+ * The claim is deliberately opaque: unknown forum, instance not running and
  * already-registered node all return generic status codes (404/403/409) that do
  * not reveal which check failed. The activation code is registered with the
  * injected {@link Redactor} before any log call and is returned exactly once in
@@ -77,7 +80,8 @@ const claimBodySchema = z
 
 /**
  * Minimal Lambda function URL event shape the broker depends on. Only the
- * request body and the HTTP method and source IP are read; the full AWS event
+ * request body and the HTTP method are read (the source IP is present on the
+ * event but deliberately unused, see the header); the full AWS event
  * type is intentionally not imported.
  */
 export interface BrokerEvent {
@@ -185,8 +189,8 @@ async function hasRegisteredNode(
  * Create the broker handler from injected dependencies.
  *
  * The returned function implements the claim algorithm from the design:
- * validate the body and resolve the forum (404 unknown), check the source IP
- * against the forum's static IP (403), reject if a node is already registered
+ * validate the body and resolve the forum (404 unknown), verify the forum's
+ * instance exists and is running via GetInstance (403), reject if a node is already registered
  * (409), delete any prior unused activations, create a fresh single-use
  * activation that expires in one hour, and return its id and code once.
  *

@@ -181,6 +181,16 @@ Claim algorithm (`POST {brokerUrl}` with body `{ "environment": "<env>", "forumI
 5. `CreateActivation({ IamRole: roleName, RegistrationLimit: 1, ExpirationDate: now + 1h, DefaultInstanceName, Tags: [community-hub:environment, community-hub:forum] })`.
 6. Return `200 { activationId, activationCode, region }` (no `observedIp`: the claim source IP is a NAT address and carries no authorization meaning).
 
+**Residual exposure (accepted).** The claim authorizes the *forum*, not the *caller*: the function URL is unauthenticated and the ownership check proves only that the forum's own instance exists and is `running` in this account. Any party that can reach the URL and knows a valid `environment` + `forumId` can therefore cause an activation to be minted while that forum has no registered node. What bounds the exposure:
+
+- **Single registration per forum.** Once the legitimate node registers, every later claim returns 409 and no new activation is issued. An attacker must win the race against the booting instance, which claims within seconds of first boot.
+- **One-hour expiry and `RegistrationLimit: 1`.** An activation that is minted but not used is useless after an hour and can register at most one node.
+- **Identifiers are not secrets but are not published.** `environment` and `forumId` are non-secret, yet they appear only in the metadata file, resource names and the instance's own user data, never in public DNS or outputs.
+- **Blast radius of a hijacked registration.** The registered node assumes only the per-forum node role: read its own `/community-hub/<env>/<forumId>/*` secrets, write its own API key, and (DNS-01) change its own `_acme-challenge` TXT record. It cannot reach another forum's secrets (explicit `NotResource` deny) and holds no IAM user key.
+- **Detectability.** Every issued activation logs `activation issued` with the activation id (never the code), and a lost race surfaces as the legitimate instance receiving 409 and failing its install with a clear reason.
+
+*Decision:* accepted for this threat model (a community forum whose node role exposes only that forum's own secrets). It would not be acceptable if the node role were broader. *Considered and not adopted:* rejecting claims for instances older than a boot window using `GetInstance.createdAt`, which would narrow the race further but would also block legitimate re-claims after a failed or interrupted install, so it is left as a future hardening option should the node role ever gain broader permissions.
+
 ```mermaid
 sequenceDiagram
   participant CFN as CloudFormation
