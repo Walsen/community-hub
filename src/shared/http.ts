@@ -267,31 +267,68 @@ async function readApiMessage(response: Response): Promise<string> {
     return '';
   }
   const message = extractMessage(text);
-  return message.slice(0, MAX_API_MESSAGE_LENGTH);
+  // Collapse control characters and whitespace runs so a message cannot smuggle
+  // multi-line content into logs, then apply the length cap.
+  return message
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_API_MESSAGE_LENGTH);
 }
 
-/** Pull a human-readable message out of a JSON error body, else return the text. */
+/** Message used when an error body has no recognised error field. */
+const UNSTRUCTURED_BODY_MESSAGE = 'error response body omitted (no recognised error field)';
+
+/**
+ * Pull a human-readable message out of a JSON error body, but ONLY from the
+ * documented error fields (`errors`, `error`, `message`, `detail`, including
+ * JSON:API `errors[].detail|title`). A body that is not JSON, or has none of
+ * those fields (an HTML page, or a forum echoing the request back), is NEVER
+ * surfaced verbatim: it could carry a value we did not register with the
+ * redactor. A fixed marker is returned instead.
+ */
 function extractMessage(text: string): string {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text) as unknown;
   } catch {
-    return text;
+    return UNSTRUCTURED_BODY_MESSAGE;
   }
-  if (typeof parsed === 'object' && parsed !== null) {
-    const record = parsed as Record<string, unknown>;
-    const errors = record['errors'];
-    if (Array.isArray(errors) && errors.every((e) => typeof e === 'string')) {
-      return errors.join(', ');
-    }
-    for (const key of ['error', 'message', 'detail'] as const) {
-      const value = record[key];
-      if (typeof value === 'string' && value.length > 0) {
-        return value;
-      }
+  if (typeof parsed !== 'object' || parsed === null) {
+    return UNSTRUCTURED_BODY_MESSAGE;
+  }
+  const record = parsed as Record<string, unknown>;
+  const errors = record['errors'];
+  if (Array.isArray(errors) && errors.length > 0) {
+    // Discourse: ["msg", ...]. Flarum (JSON:API): [{ detail|title|code }, ...].
+    const parts = errors
+      .map((entry): string | undefined => {
+        if (typeof entry === 'string') {
+          return entry;
+        }
+        if (typeof entry === 'object' && entry !== null) {
+          const e = entry as Record<string, unknown>;
+          for (const key of ['detail', 'title', 'code'] as const) {
+            const value = e[key];
+            if (typeof value === 'string' && value.length > 0) {
+              return value;
+            }
+          }
+        }
+        return undefined;
+      })
+      .filter((part): part is string => part !== undefined);
+    if (parts.length > 0) {
+      return parts.join(', ');
     }
   }
-  return text;
+  for (const key of ['error', 'message', 'detail'] as const) {
+    const value = record[key];
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+  }
+  return UNSTRUCTURED_BODY_MESSAGE;
 }
 
 /** The path (plus query) of a URL, for error context. Falls back to the raw URL. */

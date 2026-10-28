@@ -210,6 +210,47 @@ describe('createHttpClient non-2xx handling', () => {
     expect((error as ForumApiError).apiMessage).toBe('bad slug, missing name');
   });
 
+  it('never surfaces an unstructured body (HTML or echoed content) in apiMessage', async () => {
+    const echoed = 'token=test-secret-value password=test-secret-value';
+    const { fetch } = createFakeFetch([
+      new Response(`<html><body>${echoed}</body></html>`, { status: 500 }),
+    ]);
+    const http = client({ fetch, maxAttempts: 1 });
+    const error = await http.request(getRequest()).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ForumApiError);
+    const message = (error as ForumApiError).apiMessage;
+    expect(message).not.toContain('test-secret-value');
+    expect(message).toBe('error response body omitted (no recognised error field)');
+  });
+
+  it('ignores unrecognised JSON fields instead of echoing the whole body', async () => {
+    const { fetch } = createFakeFetch([
+      jsonResponse(400, { echo: 'test-secret-value', request: { password: 'test-secret-value' } }),
+    ]);
+    const http = client({ fetch });
+    const error = await http.request(getRequest()).catch((e: unknown) => e);
+    const message = (error as ForumApiError).apiMessage;
+    expect(message).not.toContain('test-secret-value');
+  });
+
+  it('extracts the detail from a JSON:API errors array', async () => {
+    const { fetch } = createFakeFetch([
+      jsonResponse(422, {
+        errors: [{ status: '422', code: 'validation_error', detail: 'bad tag' }],
+      }),
+    ]);
+    const http = client({ fetch });
+    const error = await http.request(getRequest()).catch((e: unknown) => e);
+    expect((error as ForumApiError).apiMessage).toBe('bad tag');
+  });
+
+  it('collapses newlines and control characters in apiMessage', async () => {
+    const { fetch } = createFakeFetch([jsonResponse(400, { message: 'line one\n\nline\ttwo' })]);
+    const http = client({ fetch });
+    const error = await http.request(getRequest()).catch((e: unknown) => e);
+    expect((error as ForumApiError).apiMessage).toBe('line one line two');
+  });
+
   it('truncates a long apiMessage to 500 characters', async () => {
     const long = 'x'.repeat(1000);
     const { fetch } = createFakeFetch([jsonResponse(400, { message: long })]);
